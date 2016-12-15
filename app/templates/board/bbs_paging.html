@@ -1,9 +1,9 @@
 <div class="pagenation">
     <a href="javascript:goFront()"><img src="{{ url_for('static', filename='images/btn_icon1.gif') }}" alt="맨앞으로"/></a>
-    <a href="javascript:goForward()"><img src="{{ url_for('static', filename='images/btn_icon2.gif') }}" alt="이전"/></a>
+    <a href="javascript:goForward({{page}})"><img src="{{ url_for('static', filename='images/btn_icon2.gif') }}" alt="이전"/></a>
     <span id="pages"></span>
-    <a href="javascript:goBackward()"><img src="{{ url_for('static', filename='images/btn_icon3.gif') }}" alt="다음"/></a>
-    <a href="javascript:goBack()"><img src="{{ url_for('static', filename='images/btn_icon4.gif') }}" alt="맨끝으로"/></a>
+    <a href="javascript:goBackward({{page}}, {{totalpage}})"><img src="{{ url_for('static', filename='images/btn_icon3.gif') }}" alt="다음"/></a>
+    <a href="javascript:goBack({{totalpage}})"><img src="{{ url_for('static', filename='images/btn_icon4.gif') }}" alt="맨끝으로"/></a>
 </div>
 
 <script type="text/javascript">
@@ -25,6 +25,35 @@ function loadPages($, page, totalpage) {
 function gotoPage(page) {
     location.href = "/sub/5-{{ sNum }}/" + page;
 }
+
+function goFront() {
+    location.href = "/sub/5-{{ sNum }}";
+}
+
+function goForward(page) {
+    var forwardpage = page - 1;
+    if (forwardpage < 1) {
+        goFront();
+    }
+    else {
+    location.href = "/sub/5-{{ sNum }}/" + forwardpage;
+    }
+}
+
+function goBackward(page, totalpage) {
+    var backwardpage = page + 1;
+    if (backwardpage > totalpage) {
+        goBack(totalpage);
+    }
+    else {
+    location.href = "/sub/5-{{ sNum }}/" + backwardpage;
+    }
+}
+
+function goBack(totalpage) {
+    location.href = "/sub/5-{{ sNum }}/" + totalpage;
+}
+
 
 loadPages(jQuery, {{ page }}, {{ totalpage }});
 </script>

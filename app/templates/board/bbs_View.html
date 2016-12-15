@@ -143,7 +143,8 @@ function deleteComment(commentID) {
 
 function submitComment() {
     (function ($) {
-        if($("#comment-text").val() === "") return;
+        if($("#comment-text").val() == "" || current_user){alert("빈 댓글입니다.");} return;
+
         $.ajax({
             url: "/post/comment",
             type: "POST",
