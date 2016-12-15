@@ -156,7 +156,7 @@ a:active {font-size:11px; color:#666; line-height:1.8em; text-decoration:none;}
 
 /* 기본 레이아웃 관련 */
 #wrap {position:relative; margin:0 auto; width:980px; z-index:8;}
-#header {position:relative; margin:0 auto; width:980px; z-index:8; *zoom:1;}
+#header {position:relative; margin:0 0 -15px 0;auto; width:980px; z-index:8; *zoom:1;}
 #header:after {content:""; display:block; clear:both;}
 #container {position:relative; margin:10px auto; width:980px; *zoom:1;}
 #container:after {content:""; display:block; clear:both;}
@@ -183,8 +183,23 @@ a:active {font-size:11px; color:#666; line-height:1.8em; text-decoration:none;}
 #gnb li #m2 {left:220px;}
 #gnb li #m4 {left:445px;}
 #gnb li #m5 {right:0px;}
-#gnb li a {outline:none;}
-#gnb li dl dd a {overflow:hidden; outline:none;}
+#gnb li a {
+    outline:none;
+    -moz-transition:color .2s ease;   
+    -o-transition:color .2s ease;   
+    -ms-transition:color .2s ease;   
+    -webkit-transition:color .2s ease;   
+    transition:color .2s ease;   
+}
+#gnb li dl dd a {
+    overflow:hidden;
+    outline:none;
+    -moz-transition:color .2s ease;   
+    -o-transition:color .2s ease;   
+    -ms-transition:color .2s ease;   
+    -webkit-transition:color .2s ease;   
+    transition:color .2s ease;  
+}
 
 /*메인*/
 .m_con {position:relative; margin-top:35px; width:960px; height:450px; border:1px solid #d2d2d2; padding:9px;}
