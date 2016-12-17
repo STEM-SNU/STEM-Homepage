@@ -170,7 +170,7 @@ def viewPost(id):
     if not post or not post.board:
         return abort(404)
     if post.board_id == 5 and not current_user.member:
-        return redirect('/member_login')
+        return abort(404)
     post.hitCount = post.hitCount + 1
     board = models.Board.query.get(post.board_id)
     db.session.commit()
