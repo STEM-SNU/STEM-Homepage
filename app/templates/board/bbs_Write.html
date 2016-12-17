@@ -11,7 +11,7 @@
     <col>
     </colgroup>
     <thead>
-        {% if board.isPublic %}
+        {% if board.id == 2 %}
         <tr>
             <th scope="row">잠금설정</th>
             <td colspan="3">
@@ -57,7 +57,7 @@
                         <td style="padding:1px 0; border:0px solid #ffffff">
                             <input type="file" name="files" id="files" style="width:350px" class="input" multiple="true">
                             <input type="hidden" id="filedel_idx" value="0">
-                            <a href="#jLink" onclick="addRow()"><span style="color: #D90000">필드추가</span></a>
+                            <!--<a href="#jLink" onclick="addRow()"><span style="color: #D90000">필드추가</span></a>-->
                         </td>
                     </tr>
                 </table>

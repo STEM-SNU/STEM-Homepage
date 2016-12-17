@@ -29,14 +29,6 @@ def get_redirect_target():
         if is_safe_url(target):
             return target
 
-
-def redirect_back(endpoint, **values):
-    target = request.form['next']
-    if not target or not is_safe_url(target):
-        target = url_for(endpoint, **values)
-    return redirect(target)
-
-
 class RedirectForm(Form):
     next = HiddenField()
 

@@ -8,7 +8,7 @@
                     <li class="nostyle"><a href="javascript:go_menu('favorite')">즐겨찾기 추가</a></li>
                 </ul>
             </div>
-            <h1 class="logo"><a href="/"><img src="{{ url_for('static', filename='images/logo.gif') }}" alt="우수학생센터 공우" /></a></h1>
+            <h1 class="logo"><a href="/"><img src="{{ url_for('static', filename='images/logo.gif') }}" style="width:200px;" alt="우수학생센터 공우" /></a></h1>
             <!-- gnb -->
             <div class="headMenu">
                 <ul class="nostyle" id="gnb">
@@ -38,7 +38,7 @@
                         <dl id="m4">
                             <dd id="item41"><a href="/sub/4-1" ><span class="sub-list">Recruiting</span></a></dd>
                             <dd id="item42"><a href="/sub/4-2" ><span class="sub-list">Cooperation</span></a></dd>
-                            <dd id="item42"><a href="/sub/4-3" ><span class="sub-list">Donation</span></a></dd>
+                            <dd id="item43"><a href="/sub/4-3" ><span class="sub-list">Sponsors</span></a></dd>
                         </dl>
                     </li>
                     {% endif %}
@@ -63,7 +63,7 @@
             itemID = itemID + sNum;
             jQuery(itemID).addClass("on2");
         }
-        updateItem({{mNum or 1}}, {{sNum or 1}});
+        updateItem({{mNum}}, {{sNum}});
         </script>
         <!--//top-->
     </div>

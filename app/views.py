@@ -59,6 +59,20 @@ def main():
                            boards=boards,
                            form=LoginForm())
 
+@app.route('/member_login', methods=['GET', 'POST'])
+def moblogin():
+    form = LoginForm()
+    if form.validate_on_submit():
+        login_user(form.user)
+        if current_user.member:
+            if current_user.member.cycle:
+                return redirect('/stem')
+            else:
+                return redirect('/member/modify')
+        return form.redirect('main')
+
+    return render_template('/member/mlogin.html', form=form)
+
 @app.route('/vm_confirm')
 def vmConfirm():
     key = request.args.get('key')
@@ -156,7 +170,7 @@ def viewPost(id):
     if not post or not post.board:
         return abort(404)
     if post.board_id == 5 and not current_user.member:
-        return abort(404)
+        return redirect('/member_login')
     post.hitCount = post.hitCount + 1
     board = models.Board.query.get(post.board_id)
     db.session.commit()
@@ -237,12 +251,23 @@ def modify():
                 message='수정이 완료되었습니다.')
         return render_template('member/modify.html', form=form)
 
+@app.route('/stem/')
+def stem():
+	pass
 
 @app.route('/logout')
 def logout():
     form = LoginForm()
-    logout_user()
-    return redirect('/')
+    u = request.referrer
+    host = request.host
+    if (u == ('http://' + host + url_for('stem'))) or (u ==('https://' + host + url_for('stem'))):
+        logout_user()
+        return redirect('/member_login')
+    else:
+        logout_user()
+        return redirect('/')
+
+
 
 
 @app.errorhandler(401)
@@ -262,6 +287,8 @@ def not_found(e):
 @app.route('/notfound')
 def not_found2():
     return render_template('404.html', form=LoginForm()), 404
+
+
 
 class WritePost(Resource):
     @login_required
