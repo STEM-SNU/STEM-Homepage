@@ -123,8 +123,11 @@ form button {
                 </form>
                 {% endif %}
                 </div>
-
-<p class="tohp" style="text-align:center; padding-top:40px; padding-bottom:40px;"><a href="/">공우 홈페이지로</a></p>
+                {% if current_user.member %}
+<p class="tohp" style="text-align:center; padding-top:40px; padding-bottom:40px;"><a href= "/stem/">공우 홈페이지로</a></p>
+				{% else %}
+<p class="tohp" style="text-align:center; padding-top:40px; padding-bottom:40px;"><a href= "/">공우 홈페이지로</a></p>
+				{% endif %}
 <p style="text-align:center; color:#ffffff; padding-bottom:10px;"> Copyright © 2015 - 2017 <b>공우 (STEM)</b> all rights reserved.</p>
 <p class="toct" style="text-align:center; color:#ffffff"> Contact : <a href="mailto:stemsnu@gmail.com">stemsnu@gmail.com</a></p>
 
