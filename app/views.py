@@ -492,7 +492,6 @@ class IdCheck(Resource):
         else:
             return {'duplicate': False}
 
-
 member_fields = {
     'id': fields.Integer,
     'cycle': fields.Integer,
