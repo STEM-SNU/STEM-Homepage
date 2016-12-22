@@ -25,6 +25,8 @@
     SelCheck(v1,v2)            : 
 #}
 
+{% set admin_users=['wwee3631', 'stem_admin'] %}
+
 <div class="board_search">
     <form name="searchfrm" method='get' style='margin:0' onsubmit='searchGo()'>
         <input type='hidden' name='storeidx' value='<%=storeidx%>'>
@@ -36,7 +38,13 @@
         <input name="searchstr" type="text" style="width:150px;" class="input" value="">
         <input type='button' value='검색' class='button1' onclick="searchGo()" style='cursor:pointer'>
         {% if current_user.is_authenticated() %}
+        	{% if sNum == 1 %}
+        	{% if current_user.username in admin_users %}
             <input type='button' value='쓰기' class='button1' onclick="location.href='/post/write?board={{ sNum }}'" style='cursor:pointer'>
+        	{% endif %}
+        	{% else %}
+            <input type='button' value='쓰기' class='button1' onclick="location.href='/post/write?board={{ sNum }}'" style='cursor:pointer'>
+        	{% endif %}
         {% endif %}
     </form>
 </div>

@@ -295,10 +295,14 @@ class WritePost(Resource):
     def get(self):
         boardParser = reqparse.RequestParser()
         boardParser.add_argument('board', type=int, required=True)
-
+        admin_users = ['wwee3631', 'stem_admin']
         args = boardParser.parse_args()
         board = models.Board.query.get(args['board'])
         if not board:
+            return abort(400)
+        if board.id == 1 and not current_user.username in admin_users:
+            return abort(400)
+        if board.id == 3:
             return abort(400)
         if board.id == 5 and not current_user.member:
             return abort(400)
