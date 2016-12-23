@@ -4,6 +4,7 @@
     {% for article in rec %}
         <dd><a class="title" href="post/{{article.id}}/view">{{ article.title }}
         {% if article.commentCount %} <span class="comment-count">[{{article.commentCount}}]</span>{% endif %}
+        {% if article.level == 2 %}<img src="{{url_for('static', filename='images/ico_lock.gif')}}"  border='0' alt='LOCKED'/>{% endif %}
         {% if article.new %}<img src="{{url_for('static', filename='images/ico_new.gif')}}"  border='0' alt='NEW'/>{% endif %}
         </a><span class="date" data-time-format='MM.DD' data-timestamp='{{ article.timestamp.timestamp() }}'></span></dd>
     {% endfor %}

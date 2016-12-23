@@ -10,6 +10,7 @@ import datetime
 from app.helper import process_file
 import pytz
 
+admin_users = ['wwee3631', 'stem_admin']
 
 class AnonymousUser(AnonymousUserMixin):
     def __init__(self):
@@ -171,6 +172,8 @@ def viewPost(id):
         return abort(404)
     if post.board_id == 5 and not current_user.member:
         return abort(404)
+    if post.level == 2 and not ((current_user.id == post.user_id) or (current_user.username in admin_users)):
+        return abort(403)
     post.hitCount = post.hitCount + 1
     board = models.Board.query.get(post.board_id)
     db.session.commit()
@@ -295,7 +298,6 @@ class WritePost(Resource):
     def get(self):
         boardParser = reqparse.RequestParser()
         boardParser.add_argument('board', type=int, required=True)
-        admin_users = ['wwee3631', 'stem_admin']
         args = boardParser.parse_args()
         board = models.Board.query.get(args['board'])
         if not board:

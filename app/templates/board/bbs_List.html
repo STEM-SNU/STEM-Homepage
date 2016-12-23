@@ -74,7 +74,7 @@
             #}
             <tr {{ trBg }}>
                 <td class="num" style="text-align:center">{{ post.id }}</td>
-                <td class="title" style="text-align:left;padding:5px0 5px 0;{{levelView}}">
+                <td class="title" style="text-align:left;padding:5px 0 5px 0;{{levelView}}">
                     <div>
                         {% if post.isSecret %}<img src="{{ url_for('static', filename='common/memberimg/public.gif') }}" />&nbsp;{% endif %}
                         {#
@@ -88,7 +88,8 @@
                     <span class="comment-count">[{{post.commentCount}}]</span>
                     {% endif %}
                     </a>&nbsp;
-                        {% if post.isNew %}<img src="{{ url_for('static', filename='images/ico_new.gif') }}" />{% endif %}
+            	        {% if post.level == 2 %}<img src="{{url_for('static', filename='images/ico_lock.gif')}}"  border='0' alt='LOCKED'/>{% endif %}
+                        {% if post.new %}<img src="{{ url_for('static', filename='images/ico_new.gif') }}" border='0' alt='NEW'/>{% endif %}
                     </div>
                 </td>
                 {% if post.author %}

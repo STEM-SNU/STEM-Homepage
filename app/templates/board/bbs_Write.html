@@ -2,7 +2,6 @@
 
 <form name="boardfrm" id="boardfrm" action="/post/write" method="post" enctype="multipart/form-data" style="margin:0;">
 <input type="hidden" name="boardID" value="{{board.id}}">
-<input type="hidden" name="level" value="1">
 <table cellspacing="0" border="0" summary="글 내용을 작성" class="tbl_write" style="table-layout:fixed;">
     <colgroup>
     <col width="100">
@@ -15,12 +14,14 @@
         <tr>
             <th scope="row">잠금설정</th>
             <td colspan="3">
-                <input name="publicYN" type="radio" value="0" checked style="border:none;">
+                <input name="level" type="radio" value="1" checked style="border:none;">
                 공개글
-                <input name="publicYN" type="radio" value="1" style="border:none;">
+                <input name="level" type="radio" value="2" style="border:none;">
                 비공개글
             </td>
         </tr>
+        {% else %}
+        <input type="hidden" name="level" value="1">
         {% endif %}
         <tr>
             <th scope="row">작성자</th>
