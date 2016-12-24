@@ -76,8 +76,8 @@
                 <td class="num" style="text-align:center">{{ post.id }}</td>
                 <td class="title" style="text-align:left;padding:5px 0 5px 0;{{levelView}}">
                     <div>
-                        {% if post.isSecret %}<img src="{{ url_for('static', filename='common/memberimg/public.gif') }}" />&nbsp;{% endif %}
                         {#
+                        {% if post.isSecret %}<img src="{{ url_for('static', filename='common/memberimg/public.gif') }}" />&nbsp;{% endif %}
                         {% if post.level > 1 %}<img src="{{ url_for('static', filename='images/ico_reply.gif') }}" />&nbsp;{% endif %}
                         #}
                     <a href="/post/{{ post.id }}/view">{{ post.title}}

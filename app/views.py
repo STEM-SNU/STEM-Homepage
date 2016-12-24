@@ -172,8 +172,11 @@ def viewPost(id):
         return abort(404)
     if post.board_id == 5 and not current_user.member:
         return abort(404)
-    if post.level == 2 and not ((current_user.id == post.user_id) or (current_user.username in admin_users)):
-        return abort(403)
+    if post.level == 2:
+        if current_user.is_anonymous():
+            return abort(403)
+        elif not ((current_user.id == post.user_id) or (current_user.username in admin_users)):
+            return abort(403)
     post.hitCount = post.hitCount + 1
     board = models.Board.query.get(post.board_id)
     db.session.commit()
