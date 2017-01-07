@@ -12,7 +12,15 @@
 .board dt {margin-bottom: 10px;}
 .board dt .title {font-size: 15px;font-weight:bold;color:#000;}
 .board .more {float:right;color:#777;}
-.board dd a {background:url('/static/images/ico_dot_gray.gif') left 50% no-repeat;padding-left: 10px;}
+.board dd a {
+    display:inline-block;
+    background:url('/static/images/ico_dot_gray.gif') left 50% no-repeat;padding-left: 10px;
+    text-overflow:ellipsis;
+    overflow:hidden;
+    white-space:nowrap;
+    word-wrap:normal;
+    width:325px;
+}
 .board .date{float:right;}
 
 .title .fa {color:#444;font-size:110%;}
@@ -110,7 +118,7 @@
 }
 #comments li {
     list-style: none;
-    border-top: 1px dashed #888;
+    border-top: 1px solid #666;
     padding: 10px 5px;
 }
 
@@ -243,6 +251,7 @@ a:active {font-size:11px; color:#666; line-height:1.8em; text-decoration:none;}
 
 #footer .foot {float:left; padding-left:5px;}
 #footer .foot_familysite {float:right; padding-right:5px;}
+#footer .google_translate_element {color:#666;}
 
 /* 왼쪽 메뉴 */
 .left {position:relative; width:220px; float:left; left repeat-y; margin-top:20px;}

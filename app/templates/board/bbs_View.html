@@ -42,6 +42,7 @@
             <div><div id="HKeditorContent" name="HKeditorContent">{{ post.body | safe}}</div></div>
         </td>
     </tr>
+    {% if not current_user.is_anonymous() %}
     <tr class="comment-write">
         <th>
             Comment
@@ -53,6 +54,7 @@
             <button onclick="submitComment()">Post</button>
         </td>
     </tr>
+    {% endif %}
     <tr>
         <td colspan="6">
             <ul id="comments">
