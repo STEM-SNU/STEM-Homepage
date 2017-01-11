@@ -113,12 +113,12 @@
 }
 
 #comments {
-    padding: 10px 0 0;
+    padding: 0 0 0;
     margin: 0;
 }
 #comments li {
     list-style: none;
-    border-top: 1px solid #666;
+    border-top: 1px dotted #666;
     padding: 10px 5px;
 }
 
@@ -348,7 +348,7 @@ a:active {font-size:11px; color:#666; line-height:1.8em; text-decoration:none;}
 .tbl_view caption{display:none}
 .tbl_view thead th{padding:5px 0 4px;border-bottom:solid 1px #d2d2d2;background-color:#f0f0f0;color:#f19000;font-weight:bold;line-height:18px;}
 .tbl_view tbody th{padding:5px 0 4px;border-bottom:solid 1px #d2d2d2;background-color:#f0f0f0;color:#f19000;font-weight:bold;line-height:18px;}
-.tbl_view td{padding:8px 0 5px 10px;border-bottom:solid 1px #d2d2d2;text-align:left}
+.tbl_view td{padding:5px 0 5px 10px;border-bottom:solid 1px #d2d2d2;text-align:left}
 .tbl_view td.cont{padding:20px;line-height:1.8em}
 .tbl_view td.cont img{padding:10px 0;}
 .tbl_view2{width:100%;margin-top:15px;border-top:1px solid #999;border-bottom:1px solid #999;color:#666;font-size:12px;table-layout:fixed}

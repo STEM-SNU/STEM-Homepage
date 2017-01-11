@@ -6,7 +6,6 @@
 <li class="nostyle con_img">
 <div ng-app="stemApp" ng-controller="memberList">
 	<div class="members" style="margin:10px 50px;" ng-view>
-
 		<div ng-repeat="cycle in all_members">
 			<h3>{[cycle[0].cycle]}기</h3><br>
             <a ng-repeat="mem in cycle" class="member-tag" ng-click="openCard(mem.id)">
