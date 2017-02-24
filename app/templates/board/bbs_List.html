@@ -1,32 +1,5 @@
 <script type="text/javascript" src="{{ url_for('static', filename='library/boardControl.js') }}"></script>
 
-{#
-    TopSortListTag            : 
-    BBsSelectField            : category selection
-
-    BoardSort table
-    0   idx
-    1   pdsYN       : 
-    2   memYN       : member only(?)
-    3   repYN       : reply
-    4   comYN       : comment 
-    5   notYN       : notice (?)
-    6   pubYN       : public/secret
-    7   imgYN       : album (?)
-    8   ViewMode    :
-    9   ComMode
-    10  langSort
-    11  imgViewYN   : image view addon
-    12  vodUrlYN    : vod?
-    13  listNum
-    14  downMode
-
-    Session['Membership']    :
-    SelCheck(v1,v2)            : 
-#}
-
-{% set admin_users=['wwee3631', 'stem_admin'] %}
-
 <div class="board_search">
     <form name="searchform" method='post' action="{{ url_for('showBoard', sub = mNum|string + '-' + sNum|string , page = 1) }}" style='margin:0' onsubmit='searchGo()'>
         <select name="search" class="input">
@@ -39,7 +12,7 @@
         <input name="searchstr" type="text" style="width:150px;" class="input" value="{{ searchform.searchstr.data if searchform.searchstr.data is not none }}">
         <input type='button' value='검색' class='button1' onclick="searchGo()" style='cursor:pointer'>
         {% if current_user.is_authenticated() %}
-        	{% if sNum == 1 %}
+        	{% if sNum in [1, 2] %}
         	{% if current_user.username in admin_users %}
             <input type='button' value='쓰기' class='button1' onclick="location.href='/post/write?board={{ sNum }}'" style='cursor:pointer'>
         	{% endif %}
@@ -68,20 +41,11 @@
     </thead>
     <tbody>
         {% for post in posts %}
-            {#
-            {% if post.level > 1 %}
-                {% set levelView = "padding-left:%dpx;" % (post.level * 10) %}
-            {% endif %}
-            #}
-            <tr {{ trBg }}>
+            <tr>
                 <td class="num" style="text-align:center">{{ post.id }}</td>
-                <td class="title" style="text-align:left;padding:5px 0 5px 0;{{levelView}}">
+                <td class="title" style="text-align:left;padding:5px 0 5px 0;">
                     <div>
-                        {#
-                        {% if post.isSecret %}<img src="{{ url_for('static', filename='common/memberimg/public.gif') }}" />&nbsp;{% endif %}
-                        {% if post.level > 1 %}<img src="{{ url_for('static', filename='images/ico_reply.gif') }}" />&nbsp;{% endif %}
-                        #}
-                    <a href="/post/{{ post.id }}/view">{{ post.title}}
+                    <a href="/post/{{ post.id }}/view">{{ post.title }}
                     {% if post.files %}
                     <i class="fa fa-paperclip"></i>
                     {% endif %}
@@ -89,15 +53,13 @@
                     <span class="comment-count">[{{post.commentCount}}]</span>
                     {% endif %}
                     </a>&nbsp;
-            	        {% if post.level == 2 %}<img src="{{url_for('static', filename='images/ico_lock.gif')}}"  border='0' alt='LOCKED'/>{% endif %}
-                        {% if post.new %}<img src="{{ url_for('static', filename='images/ico_new.gif') }}" border='0' alt='NEW'/>{% endif %}
+            	        {% if post.hidden == 1 %}<img src="{{url_for('static', filename='images/ico_lock.gif')}}"  border='0' alt='LOCKED'/>{% endif %}
+                        {% if post.timestamp > limit %}<img src="{{ url_for('static', filename='images/ico_new.gif') }}" border='0' alt='NEW'/>{% endif %}
                     </div>
                 </td>
-                {% if post.author %}
-                <td class="name" style="text-align:center">{{ post.author.nickname }}</td>
+                <td class="name" style="text-align:center">{{ post.publicwriter.nickname }}</td>
                 <td class="date" style="text-align:center" data-timestamp='{{ post.timestamp.timestamp() }}' data-time-format='YY-MM-DD'></td>
                 <td class="hit" style="text-align:center">{{ post.hitCount }}</td>
-                {% endif %}
             </tr>
         {% endfor %}
     </tbody>

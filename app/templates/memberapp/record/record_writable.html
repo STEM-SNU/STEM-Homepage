@@ -1,0 +1,109 @@
+{% extends "memberapp/base.html" %}
+
+{% block content %}
+ <section class="content-header">
+  <h1>
+    Conference Record
+    <small>회의록을 작성/수정합니다.</small>
+  </h1>
+
+  <ol class="breadcrumb">
+    <li><a href="/stem"><i class="fa fa-list-ul"></i> Home</a></li>
+    <li class="active">Conference Record</li>
+  </ol>
+</section>
+
+<!-- Main content -->
+<section class="content">
+<div class="row">
+      
+      <div class="col-xs-12">
+          <div class="box box-warning">
+            <div class="box-header with-border">
+              <h3 class="box-title">회의록 &nbsp;<small>개시 후 7일 이내의 회의록만 작성/수정이 가능합니다.</small></h3>
+            </div><!-- /.box-header -->
+            <div class="box-body table-responsive" style="padding:0;">
+                {% if records %}
+                <table id="exported" class="table table-bordered table-hover text-center">
+                    <tbody>
+                        <tr style="background-color:white;">
+                        <th>구분</th>
+                        <th>날짜</th>
+                        <th>장소</th>
+                        <th>제목</th>
+                        <th>상태</th>
+                        </tr>
+                        {% for record in records %}
+                        <tr>
+                        {% if record.conftype == 0 %}
+                        <td style="vertical-align:middle;"><small>정기</small></td>
+                        {% elif record.conftype == 1 %}
+                        <td style="vertical-align:middle;"><small>임원</small></td>
+                        {% elif record.conftype == 2 %}
+                        <td style="vertical-align:middle;"><small>대교</small></td>
+                        {% elif record.conftype == 3 %}
+                        <td style="vertical-align:middle;"><small>봉사</small></td>
+                        {% elif record.conftype == 4 %}
+                        <td style="vertical-align:middle;"><small>학술</small></td>
+                        {% elif record.conftype == 5 %}
+                        <td style="vertical-align:middle;"><small>기타</small></td>
+                        {% endif %}
+                        <td style="vertical-align:middle;">{{record.confday.strftime('%Y-%m-%d')}}</td>
+                        <td style="vertical-align:middle;">{{record.confplace}}</td>
+                        <td style="vertical-align:middle; text-align:left;"><a href="/stem/record/write/{{record.id}}" class="text-muted"><b>{{record.title}}
+                         {% if record.commentCount %}[{{record.commentCount}}]{% endif %}</b></a></td>
+                        <td style="vertical-align:middle;">{% if not record.body %}<span style="color:crimson;"><b>미작성</b></span>{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                </table>
+                {% else %}
+                <h3 class="text-center" style="margin:10px;">회의록을 작성하려면 <a href="/stem/record/make">신규 회의 생성</a>에서 회의를 개시하세요.</h3>
+                <p class="text-center" style="margin:10px;">{{current_user.nickname}} 회원님은 현재 작성/수정 가능한 회의록이 없습니다.</p>
+                {% endif %}
+            </div>
+            </div>
+
+      </div>
+</div>
+</section>
+{% endblock %}
+
+{% block modals %}
+{% endblock %}
+
+{% block styles %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$("#SearchConf").click(function() {
+        var conftypes ='';
+        jQuery('.conftype').each(function(i) {
+            if (this.checked == true) {
+                conftypes=conftypes+this.value+' ';
+            }
+        });
+        jQuery("input[id=conftypes]").val(conftypes);
+        jQuery("#FormConf").submit();
+    })
+
+$(".detailopen").click(function(){
+
+    var body = $(this).next();
+    if( body.is(":visible") ){
+        body.slideUp();
+        $('#title-description').css('display','inline-block');
+    }else{
+        body.slideDown();
+        $('#title-description').css('display','none');
+    }
+});
+
+function chgPage(num) {
+	$('#page').val(num);
+	$('#SearchConf').trigger('click');
+}
+</script>
+{% endblock %}

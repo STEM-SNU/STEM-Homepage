@@ -32,7 +32,7 @@
                         </dl>
                     </li>
                     <li id="item3"><a href="/sub/3-1" onmouseover="onTopNavi(3, 6);" onfocus="onTopNavi(3, 6);" target="_self" ><span class="main-list">People</span></a></li>
-                    {% if current_user.member %}
+                    {% if current_user.ismember %}
                     <li id="item4"><a href="/stem" onmouseover="onTopNavi(4, 6);" onfocus="onTopNavi(4, 6);" target="_self" ><span class="main-list">Member Page</span></a>
                     {% else %}
                     <li id="item4"><a href="/sub/4-1" onmouseover="onTopNavi(4, 6);" onfocus="onTopNavi(4, 6);" target="_self" ><span class="main-list">Join Us</span></a>
@@ -46,11 +46,9 @@
                     <li id="item5" style="padding-right:5px;"><a href="/sub/5-1" onmouseover="onTopNavi(5, 6);" onfocus="onTopNavi(5, 6);" target="_self" ><span class="main-list">Board</span></a>
                         <dl id="m5">
                             <dd id="item51"><a href="/sub/5-1" ><span class="sub-list">Notice</span></a></dd>
-                            <dd id="item52"><a href="/sub/5-2" ><span class="sub-list">Q &amp; A</span></a></dd>
+                            <dd id="item52"><a href="/sub/5-2" ><span class="sub-list">News</span></a></dd>
                             <dd id="item54"><a href="/sub/5-4" ><span class="sub-list">자유게시판</span></a></dd>
-                            {% if current_user.member %}
-                            <dd id="item55"><a href="/sub/5-5"><span class="sub-list">STEM 회원게시판</span></a></dd>
-                            {% endif %}
+                            <dd id="item55"><a href="/sub/5-5"><span class="sub-list">Q &amp; A</span></a></dd>
                         </dl>
                     </li>
                 </ul>

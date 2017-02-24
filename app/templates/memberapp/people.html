@@ -26,13 +26,9 @@
 	<div class="members" style="text-align:center;" ng-view>
 	    <div class="form-group" style="text-align:center;">
         <select name="cycle" class="form-control" ng-init="searchText.cycle = searchText.cycle || {{cycle}}" ng-model="searchText.cycle" style="width:130px; display:inline-block;">
-        <option value='7' style="text-align:center;">7기 - 2016년</option>
-        <option value='6' style="text-align:center;">6기 - 2015년</option>
-        <option value='5' style="text-align:center;">5기 - 2014년</option>
-        <option value='4' style="text-align:center;">4기 - 2013년</option>
-        <option value='3' style="text-align:center;">3기 - 2012년</option>
-        <option value='2' style="text-align:center;">2기 - 2011년</option>
-        <option value='1' style="text-align:center;">1기 - 2010년</option>
+        {%for n in range(current.cycle)%}
+        <option value='{{n+1}}' style="text-align:center;">{{n+1}}기 - {{n+2010}}년</option>
+        {%endfor%}
    		</select></div>
 		<div ng-repeat="cycle in all_members | filter:searchText">
 			<h3 style="margin-top:0; margin-left:5px;">{[cycle[0].cycle]}기</h3><br><br>
@@ -42,7 +38,7 @@
             			<img class="member-picture-thumb" src="/static/upload/{[ mem.img || 'profile/default.png']}">
             		</div>
             	</div>
-            	<h5>{[mem.user.nickname]}</h5>
+            	<h5>{[mem.nickname]}</h5>
             </div>
         </div>
 	</div>
@@ -52,21 +48,26 @@
                 <img class="card-cover" src="/static/upload/{[members[pIndex].cover || 'cover/cover_default.gif']}">
             </div>
             <div class="card-desc" style="max-height:300px; overflow-y:scroll;">
-                <h4 class="card-member-name">{[members[pIndex].user.nickname]}</h4>
-                <h6 class="card-member-dept">{[members[pIndex].cycle]}기 {[members[pIndex].stem_dept]}, {[members[pIndex].dept]}</h6><br>
-                <p class="card-member-description">{[members[pIndex].cv]}</p>
-                <p class="card-member-description">{[members[pIndex].comment]}</p>
+                <div class="col-xs-12"><a style="color:white; margin:10px 0 10px 0;" class="btn btn-primary btn-block" href="/stem/board/personal/{[members[pIndex].id]}">개인 게시판 가기 <i class="fa fa-angle-right"></i></a></div>
+                <hr style="border:1px solid #f0f0f0; margin-bottom:0;">
+                <div class="text-center">
+                <h4 class="card-member-name" style="margin-bottom:1px;">{[members[pIndex].nickname]}</h4>
+                <h6 class="card-member-dept" style="margin-bottom:1px;">{[members[pIndex].cycle]}기 {[members[pIndex].deptstem]}, {[members[pIndex].deptuniv]}</h6></div>
+                <p class="text-center text-muted">({[members[pIndex].username]})</p>
+                <p class="card-member-description">{[members[pIndex].cvpublic]}</p>
+                <p class="card-member-description">{[members[pIndex].cvmember]}</p>
                 <a class="card-member-social-link" href="{[members[pIndex].social]}">{[members[pIndex].social.split('://')[1]]}</a>
-                <a style="margin:20px 0 0 0;" class="btn btn-default btn-block" href="/stem/people/{[members[pIndex].id]}">자세히 보기 ></a>
+
+                <div class="col-xs-12"><a style="margin:10px 0 0 0;" class="btn btn-default btn-block" href="/stem/people/{[members[pIndex].id]}">프로필 자세히 보기 <i class="fa fa-angle-right"></i></a></div>
             </div>
         </div>
         <a class="member-card-prev member-card-control" href="javascript:void(0)" ng-click="goPrev()">
-            <span>{[prevMember().user.nickname]}</span>
+            <span>{[prevMember().nickname]}</span>
             <i class="fa fa-arrow-left"></i>
         </a>
         <a class="member-card-next member-card-control" href="javascript:void(0)" ng-click="goNext()">
             <i class="fa fa-arrow-right"></i>
-            <span>{[nextMember().user.nickname]}</span>
+            <span>{[nextMember().nickname]}</span>
         </a>
         <a href="javascript:void(0)" onclick="closeModal()">
             <i class="modal-close fa fa-remove" style="line-height:22px;"></i>

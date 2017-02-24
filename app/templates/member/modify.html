@@ -101,7 +101,7 @@ function autoGrow (oField) {
 </tbody>
 </table>
 
-{% if current_user.member %}
+{% if current_user.ismember %}
 <br>
 <h4 style="padding:5px;">공우 회원 정보 수정</h4>
 <table cellspacing="0" class="tbl_join tbl_member" summary="공우 회원 정보 수정">
@@ -114,24 +114,24 @@ function autoGrow (oField) {
     <tr>
         <th scope="row" class="import">핸드폰번호</th>
         <td style="padding:5px 0 5px 10px;">
-            <input name="cell" type="text" class="input" size="20" maxlength="20" onKeyPress='if( event.keyCode !== 45 && (event.keyCode<48) || (event.keyCode>57) ) event.returnValue=false;' style='IME-MODE:disabled' value="{{current_user.member.phone or ''}}">
+            <input name="cell" type="text" class="input" size="20" maxlength="20" onKeyPress='if( event.keyCode !== 45 && (event.keyCode<48) || (event.keyCode>57) ) event.returnValue=false;' style='IME-MODE:disabled' value="{{current_user.phone or ''}}">
         </td>
     </tr>
     <tr>
         <th scope="row" class="import">생년월일</th>
         <td style="padding:5px 0 5px 10px;">
-            <input name="birthday" id="birthday" placeholder="YYYY-MM-DD" maxlength="10" type="date" class="input" value="{{current_user.member.birthday or ''}}"/>
+            <input name="birthday" id="birthday" placeholder="YYYY-MM-DD" maxlength="10" type="date" class="input" value="{{current_user.birthday or ''}}"/>
         </td>
     </tr>
     <tr>
         <th scope="row" class="import">기수</th>
-        <td style="padding:5px 0 5px 10px;"><input name="cycle" type="text" class="input" size="3" maxlength='3' value="{{current_user.member.cycle}}">기</td>
+        <td style="padding:5px 0 5px 10px;"><input name="cycle" type="hidden" class="input" value="{{current_user.cycle}}">{{current_user.cycle}} 기</td>
     </tr>
     <tr>
         <th scope="row" class="import">소속 학과(부)</th>
         <td style="padding:5px 0 5px 10px;"><select name="department" class="input">
         {% for dept in departments %}
-        <option value="{{dept.id}}"{% if dept.id == current_user.member.dept_id %} selected {% endif %}>{{dept.name}}</option>
+        <option value="{{dept.id}}"{% if dept.id == current_user.deptuniv_id %} selected {% endif %}>{{dept.name}}</option>
         {% endfor %}
         </select></td>
     </tr>
@@ -139,24 +139,24 @@ function autoGrow (oField) {
         <th scope="row" class="import">부서</th>
         <td style="padding:5px 0 5px 10px;"><!--<select name="stem_department" class="input">
         {% for dept in stem_departments %}
-        <option value="{{dept.id}}" {% if dept.id == current_user.member.stem_dept_id %} selected {% endif %}>{{dept.name}}</option>
+        <option value="{{dept.id}}" {% if dept.id == current_user.stem_dept_id %} selected {% endif %}>{{dept.name}}</option>
         {% endfor %}
         </select>-->
-        {% for dept in stem_departments %}
-        {% if dept.id == current_user.member.stem_dept_id %}
-        {% set deptnm = dept.name %}{{deptnm}}
-        <input name="stem_department" value="{{current_user.member.stem_dept_id}}" type="hidden">
+        {% for dept in deptstems %}
+        {% if dept == current_user.deptstem %}
+        {{dept.name}}
+        <input name="stem_department" value="{{current_user.deptstem_id}}" type="hidden">
         {% endif %}
         {% endfor %} 
         </td>
     </tr>
     <tr>
         <th scope="row">자기소개<br>(공개용)</th>
-        <td style="padding:5px 0 5px 10px;"><textarea style="width:98%;overflow:hidden;"class="input" rows="5" name="cv" onkeyup="autoGrow(this);">{{ current_user.member.cv or ''}}</textarea></td>
+        <td style="padding:5px 0 5px 10px;"><textarea style="width:98%;overflow:hidden;"class="input" rows="5" name="cvpublic" onkeyup="autoGrow(this);">{{ current_user.cvpublic or ''}}</textarea></td>
     </tr>
     <tr>
         <th scope="row">자기소개<br>(STEM 내부용)</th>
-        <td style="padding:5px 0 5px 10px;"><textarea onkeyup="autoGrow(this);" style="width:98%;overflow:hidden;" class="input" rows="5" name="comment">{% if current_user.member.comment and current_user.member.comment != '' %}{{ current_user.member.comment }}{% else %}Example)
+        <td style="padding:5px 0 5px 10px;"><textarea onkeyup="autoGrow(this);" style="width:98%;overflow:hidden;" class="input" rows="5" name="cvmember">{% if current_user.cvmember and current_user.cvmember != '' %}{{ current_user.cvmember }}{% else %}Example)
 학번
 주량/술버릇
 최근의 경력사항
@@ -169,20 +169,26 @@ STEM에게 하고 싶은 말
     </tr>
     <tr>
         <th scope="row">SNS</th>
-        <td style="padding:5px 0 5px 10px;"><input name="social" type="text" class="input" size="50" value="{{current_user.member.social or ''}}"></td>
+        <td style="padding:5px 0 5px 10px;"><input name="social" type="text" class="input" size="50" value="{{current_user.social or ''}}"></td>
     </tr>
     <tr>
         <th scope="row">프로필 사진<br>(140x140px, png/jpg/gif)</th>
-        <td style="padding:5px 0 5px 10px;"><input name="photo" type="file" class="input">{% if current_user.member.img %} (프로필 사진 있음){% endif %}</td>
+        <td style="padding:5px 0 5px 10px;"><input name="photo" type="file" class="input">{% if current_user.img %} (프로필 사진 있음){% endif %}</td>
     </tr>
     <tr>
         <th scope="row">커버 사진<br>(423x200px, png/jpg/gif)</th>
-        <td style="padding:5px 0 5px 10px;"><input name="cover" type="file" class="input">{% if current_user.member.cover %} (커버 사진 있음){% endif %}</td>
+        <td style="padding:5px 0 5px 10px;"><input name="cover" type="file" class="input">{% if current_user.cover %} (커버 사진 있음){% endif %}</td>
     </tr>
     <tr>
         <th scope="row">사는 곳</th>
         <td style="padding:5px 0 5px 10px;">
-            <p style="padding:4px 0 0 0;"><input name="addr" type="text" class="input" size="50" value="{{current_user.member.addr or ''}}"></p>
+            <p style="padding:4px 0 0 0;"><input name="addr" type="text" class="input" size="50" value="{{current_user.addr or ''}}"></p>
+        </td>
+    </tr>
+    <tr>
+        <th scope="row">현 소속(직장)</th>
+        <td style="padding:5px 0 5px 10px;">
+            <p style="padding:4px 0 0 0;"><input name="position" type="text" class="input" size="50" value="{{current_user.position or ''}}"></p>
         </td>
     </tr>
 </tbody>

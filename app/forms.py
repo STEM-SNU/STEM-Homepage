@@ -94,22 +94,27 @@ class RegisterForm(RedirectForm):
         self.email.data = self.email.data.strip()
 
 
-        member = None
         user = models.User.query.filter_by(email=self.email.data).first()
         if user and user.username[0: 11] == 'stem_member' and \
-           user.member and user.nickname == self.name.data:
-            member = user.member
-            user.member = None
-            db.session.delete(user)
+           user.nickname == self.name.data:
+
+            member = models.User(True, self.userid.data, self.passwd.data,
+                                    self.name.data, self.email.data)
+            
+            user.username = member.username
+            user.password = member.password
+
+            db.session.add(user)
             db.session.commit()
+
+            self.user=user
+            return True
         elif user:
             self.userid.errors.append('Duplicate')
             return False
 
-        user = models.User(self.userid.data, self.passwd.data,
+        user = models.User(False, self.userid.data, self.passwd.data,
                            self.name.data, self.email.data)
-        if member:
-            user.member = member
 
         db.session.add(user)
         db.session.commit()
@@ -159,9 +164,10 @@ class ModifyMemberForm(ModifyForm):
                                               'PNG/JPG/GIF file only')])
     department = IntegerField('Department')
     stem_department = IntegerField('STEM_Department')
-    cv = TextField('CV')
-    comment = TextField('Comment')
+    cvpublic = TextField('CV')
+    cvmember = TextField('Comment')
     social = TextField('Social Network')
+    position = TextField('Position')
 
     def validate(self):
         rv = super().validate()
@@ -169,45 +175,47 @@ class ModifyMemberForm(ModifyForm):
             return False
 
         if self.cell.data != '':
-            self.user.member.phone = self.cell.data
+            self.user.phone = self.cell.data
         if self.birthday.data != '':
-            self.user.member.birthday = datetime.strptime(self.birthday.data,
+            self.user.birthday = datetime.strptime(self.birthday.data,
                                                           '%Y-%m-%d').date()
-
         if self.photo.data.filename != '':
             ext = self.photo.data.filename.rsplit('.', 1)[1]
             filename = 'profile/%d.' % self.user.id + ext
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             self.photo.data.save(file_path)
-            self.user.member.img = filename
-
+            self.user.img = filename
         if self.cover.data.filename != '':
             ext = self.cover.data.filename.rsplit('.', 1)[1]
             filename = 'cover/%d.' % self.user.id + ext
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             self.cover.data.save(file_path)
-            self.user.member.cover = filename
-
+            self.user.cover = filename
         if self.cycle.data != '':
-            self.user.member.cycle = self.cycle.data
-        if self.addr.data != '':
-            self.user.member.addr = self.addr.data
-        if self.cv.data != '':
-            self.user.member.cv = self.cv.data
-        if self.comment.data != '':
-            self.user.member.comment = self.comment.data
+            self.user.cycle = self.cycle.data
+
+        self.user.addr = self.addr.data
+
+        self.user.cvpublic = self.cvpublic.data
+
+        self.user.cvmember = self.cvmember.data
+
         if self.social.data != '':
             if self.social.data[0:4] != 'http':
                 self.social.data = 'http://' + self.social.data
-            self.user.member.social = self.social.data
 
-        self.user.member.dept_id = self.department.data
-        self.user.member.stem_dept_id = self.stem_department.data
+        self.user.social = self.social.data
+
+        self.user.position = self.position.data
+
+        self.user.deptuniv_id = self.department.data
+        self.user.deptstem_id = self.stem_department.data
 
         db.session.commit()
 
-        notification.Push(self.user.member, models.Member.query.all(),
-                          self.user.member, models.NotificationAction.update)
+        target = models.User.query.filter_by(id=current_user.id).first()
+        notification.Push(self.user, models.User.query.filter_by(ismember=1).all(),
+                          target, models.NotificationAction.update)
 
         return True
 

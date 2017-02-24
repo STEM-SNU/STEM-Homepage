@@ -1,0 +1,65 @@
+{% extends "memberapp/base.html" %}
+{% block content %}
+<section class="content-header">
+    <h1>
+        Member / Board Search
+        <small>'{{search_string}}'의 검색 결과 :</small>
+    </h1>
+    <ol class="breadcrumb">
+        <li><a href="/stem"><i class="fa fa-dashboard"></i> Home</a></li>
+        <li class="active">Calendar</li>
+    </ol>
+</section>
+
+<section class="content">
+<div class="row">
+  <div class="col-lg-6">
+        <div class="box box-primary">
+          <div class="box-header with-border">
+            <h3 class="box-title">회원 검색 결과</h3>
+          </div>
+          <div class="box-body for-board" style="padding:0; max-height:300px; overflow-y:scroll;cursor:pointer;">
+            <table class="table table-hover table-responsive" id="recent-table">
+            <tbody>
+            {%for person in matched_people %}
+            <tr>
+            <td onClick="location.href='/stem/people/{{person.id}}'" class="col-md-10 text-left">{{person.cycle}}기 <i class='fa fa-angle-double-right'></i> {{person.nickname}} ({{person.username}})
+            <small> : {{person.phone}} {%if person.position %}, {{person.position}} {% endif %}</small></td>
+            </tr>
+            {%endfor%}
+            <tbody>
+            </table>
+          </div>
+        </div>
+  </div>
+  <div class="col-lg-6">
+        <div class="box box-warning">
+          <div class="box-header with-border">
+            <h3 class="box-title">게시판 검색 결과</h3>
+          </div>
+          <div class="box-body for-board" style="padding:0; max-height:300px; overflow-y:scroll;cursor:pointer;">
+            <table class="table table-hover table-responsive" id="recent-table">
+            <tbody>
+            {%for board in matched_boards %}
+            <tr onClick="location.href='/stem/board/{{board.id}}'">
+            <td class="col-md-10 text-left">{{board.group.name}} <i class='fa fa-angle-double-right'></i> {{board.title}}</td>
+            <td class="col-md-2 text-right"><span class="label label-warning">{{ board.owner.nickname }}</span></td>
+            </tr>
+            {%endfor%}
+            <tbody>
+            </table>
+          </div>
+        </div>
+  </div>
+</div>
+</section>
+{% endblock %}
+
+{% block modals %}
+{% endblock %}
+
+{% block styles %}
+{% endblock %}
+
+{% block scripts %}
+{% endblock %}

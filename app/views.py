@@ -1,32 +1,25 @@
 #-*-coding: utf-8 -*-
-from app import app, api, db, models, lm, mail
+from app import app, api, db, models, lm
 from flask import render_template, Response, redirect, url_for, request, abort, flash
 from flask.ext.restful import Resource, reqparse, fields, marshal_with
 from flask.ext.login import login_user, logout_user, current_user, \
     login_required, AnonymousUserMixin
 from flask.ext.mobility.decorators import mobile_template, mobilized
-from flask.ext.mail import Mail, Message
+from .admin_views import admin_users
 from .forms import LoginForm, RegisterForm, ModifyForm, ModifyMemberForm, \
     ResetForm, ResetPassword, FindIDForm, SearchForm, ts
-from sqlalchemy import and_
-import datetime
-from app.helper import process_file
-import pytz
+from .helper import process_file, delete_file, send_email
+from .member_help import Current
 
-admin_users = ['wwee3631', 'stem_admin']
+from sqlalchemy import and_
+
+import datetime
+import pytz
 
 class AnonymousUser(AnonymousUserMixin):
     def __init__(self):
         super().__init__()
         self.member = None
-
-def send_email(to, subject, template, **kwargs):
-	msg = Message(
-		   subject,
-		    sender=app.config['MAIL_DEFAULT_SENDER'],
-		    recipients=[to])
-	msg.html = template
-	mail.send(msg)
 
 lm.anonymous_user = AnonymousUser
 
@@ -37,24 +30,23 @@ def load_user(id):
 @app.route('/')
 @mobile_template('/{mobile/}main.html')
 def main(template):
-    bannerRec = db.session.query(models.Banner).order_by(models.Banner.id.desc()).all()
+    bannerRec = models.Banner.query.order_by(models.Banner.id.desc()).all()
 
-    board_ids = [1, 2, 4]
+    boardpublic_ids = [1, 2, 4, 5]
+    # 1 : Notice, 2 : News, 4 : Freeboard, 5 : Q&A
 
-    if current_user.member:
-        board_ids.append(5)
     boardRec = list()
     boards = list()
 
-    for bid in board_ids:
-        board = models.Board.query.get(bid)
+    for bid in boardpublic_ids:
+        board = models.BoardPublic.query.get(bid)
         if not board:
             continue
         boards.append(board)
         boardRec.append(
-            db.session.query(models.Post)
-                      .filter_by(board_id=bid)
-                      .order_by(models.Post.timestamp.desc())
+            db.session.query(models.PostPublic)
+                      .filter_by(boardpublic_id=bid)
+                      .order_by(models.PostPublic.timestamp.desc())
                       .limit(5).all())
 
     for rec in boardRec:
@@ -114,7 +106,7 @@ def findid():
 	        	return redirect('/findID')
         else:
         	flash('해당하는 회원 정보가 존재하지 않습니다.')
-        	return redirect('/findID')    	
+        	return redirect('/findID')
     return render_template('findID.html', form=form)
 
 @app.route('/reset/<token>', methods=["GET", "POST"])
@@ -143,22 +135,26 @@ def moblogin():
     form = LoginForm()
     if form.validate_on_submit():
         login_user(form.user)
-        if current_user.member:
-            if current_user.member.cycle:
-                return redirect('/stem')
-            else:
-                return redirect('/member/modify')
-        else:
-            return redirect('/')
+        if current_user.ismember:
 
-    return render_template('/member/mlogin.html', form=form)
+            if request.host in ['gongwoo.snu.ac.kr', 'eng-stem.snu.ac.kr', 'honor.snu.ac.kr']:
+                if request.referrer.find('/stem/') > -1:
+                    return redirect(request.referrer)
+                else:
+                    return redirect('/stem')
+            else:
+                return redirect('/stem')
+
+        return redirect('/')
+
+    return render_template('member/mlogin.html', form=form)
 
 @app.route('/vm_confirm')
 def vmConfirm():
     key = request.args.get('key')
     if not key:
         abort(404)
-    if not current_user.member:
+    if current_user.is_anonymous() or not current_user.ismember:
         return render_template('vm.html', form=LoginForm())
     return render_template('vm_confirm.html', form=LoginForm(), key=key)
 
@@ -184,11 +180,13 @@ def showSub(sub):
         return redirect('/sub/2-5/%d' % year)
     if request.MOBILE == False:
         return render_template('sub' + mNum + '_' + sNum + '.html',
+                               current=Current(),
                                mNum=int(mNum),
                                sNum=int(sNum),
                                form=LoginForm())
     else:
         return render_template('mobile/sub' + mNum + '_' + sNum + '.html',
+                               current=Current,
                                mNum=int(mNum),
                                sNum=int(sNum),
                                form=LoginForm())
@@ -199,37 +197,34 @@ def showBoard(sub, page):
     sNum = sub[2]
     searchform = SearchForm()
     if mNum == '5':
-        # member board
-        if sNum == '5' and not current_user.member:
-            abort(404)
-
         if sNum == '3':
             abort(404)
 
-        pagenation = models.Post.query.filter_by(
-            board_id=int(sNum)).order_by(models.Post.timestamp.desc()) \
+        pagenation = models.PostPublic.query.filter_by(
+            boardpublic_id=int(sNum)).order_by(models.PostPublic.timestamp.desc()) \
                                .paginate(page, per_page=10)
 
         if not searchform.searchstr.data == '':
             if searchform.search.data == 'title':
-                pagenation = models.Post.query.filter(
-                    and_(models.Post.board_id == int(sNum), models.Post.title.contains(searchform.searchstr.data))) \
-                    .order_by(models.Post.timestamp.desc()).paginate(page, per_page=10)
+                pagenation = models.PostPublic.query.filter(
+                    and_(models.PostPublic.boardpublic_id == int(sNum), models.PostPublic.title.contains(searchform.searchstr.data))) \
+                    .order_by(models.PostPublic.timestamp.desc()).paginate(page, per_page=10)
             if searchform.search.data == 'writer':
                 user_id = models.User.query.filter(models.User.nickname == searchform.searchstr.data).first()
                 if not user_id is None:
                     user_id = user_id.id
                 else:
                     user_id = '-1'
-                pagenation = models.Post.query.filter(
-                    and_(models.Post.board_id == int(sNum), models.Post.user_id == user_id)) \
-                    .order_by(models.Post.timestamp.desc()).paginate(page, per_page=10)
+                pagenation = models.PostPublic.query.filter(
+                    and_(models.PostPublic.boardpublic_id == int(sNum), models.PostPublic.writer_id == user_id)) \
+                    .order_by(models.PostPublic.timestamp.desc()).paginate(page, per_page=10)
             if searchform.search.data == 'content':
-                pagenation = models.Post.query.filter(
-                    and_(models.Post.board_id == int(sNum), models.Post.body.contains(searchform.searchstr.data))) \
-                    .order_by(models.Post.timestamp.desc()).paginate(page, per_page=10)
+                pagenation = models.PostPublic.query.filter(
+                    and_(models.PostPublic.boardpublic_id == int(sNum), models.PostPublic.body.contains(searchform.searchstr.data))) \
+                    .order_by(models.PostPublic.timestamp.desc()).paginate(page, per_page=10)
 
-        board = models.Board.query.get(int(sNum))
+        board = models.BoardPublic.query.get(int(sNum))
+        limit = datetime.datetime.utcnow() - datetime.timedelta(days=5)
 
         if not board:
             abort(404)
@@ -238,14 +233,14 @@ def showBoard(sub, page):
             return render_template('sub' + mNum + '.html',
                                    page=page, totalpage=pagenation.pages,
                                    posts=pagenation.items, board=board,
-                                   mNum=int(mNum), sNum=int(sNum),
-                                   form=LoginForm(), searchform=searchform)
+                                   mNum=int(mNum), sNum=int(sNum), limit=limit,
+                                   form=LoginForm(), searchform=searchform, admin_users=admin_users)
         else:
             return render_template('/mobile/sub' + mNum + '.html',
                                    page=page, totalpage=pagenation.pages,
                                    posts=pagenation.items, board=board,
-                                   mNum=int(mNum), sNum=int(sNum),
-                                   form=LoginForm(), searchform=searchform)
+                                   mNum=int(mNum), sNum=int(sNum), limit=limit,
+                                   form=LoginForm(), searchform=searchform, admin_users=admin_users)
 
     elif mNum == '2' and sNum == '5':
         return showHistory(sub, page)
@@ -263,88 +258,76 @@ def showHistory(sub, page):
         page = year
     start = datetime.datetime(page, 1, 1, tzinfo=pytz.utc)
     end = datetime.datetime(page, 12, 31, tzinfo=pytz.utc)
-    allRec = db.session.query(models.Post) \
-                       .filter(and_(models.Post.timestamp.between(start, end),
-                               models.Post.board_id == 3)) \
-                       .order_by(models.Post.timestamp).all()
+    allRec = db.session.query(models.History) \
+                       .filter(models.History.starttime.between(start, end)) \
+                       .order_by(models.History.starttime).all()
 
     for post in allRec:
-        post.period = post.timestamp.strftime('%m.%d')
-        if post.body and post.body != '':
-            endDate = datetime.datetime.utcfromtimestamp(float(post.body))
+        post.period = post.starttime.strftime('%m.%d')
+        if post.endtime and post.endtime != '':
+            endDate = datetime.datetime.utcfromtimestamp(float(post.endtime))
             post.period = post.period + ' ~ ' + endDate.strftime('%m.%d')
 
     if request.MOBILE == False:
         return render_template('sub2_5.html',
                                mNum=int(mNum), sNum=int(sNum), form=LoginForm(),
-                               years=yearRec, page=page, history=allRec)
+                               years=yearRec, page=page, history=allRec, admin_users=admin_users)
     else:
         return render_template('mobile/sub2_5.html',
                                mNum=int(mNum), sNum=int(sNum), form=LoginForm(),
-                               years=yearRec, page=page, history=allRec)
+                               years=yearRec, page=page, history=allRec, admin_users=admin_users)
 
 
 @app.route('/post/<int:id>')
 @app.route('/post/<int:id>/view')
 def viewPost(id):
-    post = models.Post.query.get(id)
-    if not post or not post.board:
+    post = models.PostPublic.query.get(id)
+    if not post or not post.boardpublic:
         return abort(404)
-    if post.board_id == 5 and not current_user.member:
-        return abort(404)
-    if post.level == 2:
+#    if post.boardpublic_id == 5 and not current_user.ismember:
+#        return abort(403)
+    if post.hidden == True:
         if current_user.is_anonymous():
             return abort(403)
-        elif not ((current_user.id == post.user_id) or (current_user.username in admin_users)):
-            return abort(403)
+        elif not ((current_user.id == post.writer_id) or (current_user.username in admin_users)):
+            return abort(404)
     post.hitCount = post.hitCount + 1
-    board = models.Board.query.get(post.board_id)
+    board = models.BoardPublic.query.get(post.boardpublic_id)
     db.session.commit()
-    prev = models.Post.query.filter(
-        and_(models.Post.id < id, models.Post.board_id == post.board_id)). \
-        order_by(models.Post.timestamp.desc()).first()
-    next = models.Post.query.filter(
-        and_(models.Post.id > id, models.Post.board_id == post.board_id)). \
-        order_by(models.Post.timestamp.asc()).first()
+    prev = models.PostPublic.query.filter(
+        and_(models.PostPublic.id < id, models.PostPublic.boardpublic_id == post.boardpublic_id)). \
+        order_by(models.PostPublic.timestamp.desc()).first()
+    next = models.PostPublic.query.filter(
+        and_(models.PostPublic.id > id, models.PostPublic.boardpublic_id == post.boardpublic_id)). \
+        order_by(models.PostPublic.timestamp.asc()).first()
 
     if request.MOBILE == False:
-        return render_template('sub5.html', mNum=5, sNum=post.board_id,
+        return render_template('sub5.html', mNum=5, sNum=post.boardpublic_id,
                                mode='view', post=post, board=board, prev=prev,
-                               next=next, form=LoginForm())
+                               next=next, form=LoginForm(), admin_users=admin_users)
     else:
-        return render_template('mobile/sub5.html', mNum=5, sNum=post.board_id,
+        return render_template('mobile/sub5.html', mNum=5, sNum=post.boardpublic_id,
                                mode='view', post=post, board=board, prev=prev,
-                               next=next, form=LoginForm())
-
-#Not implemented: block for security reason
-"""
-@app.route('/post/<int:id>/reply')
-def replyPost(id):
-    board = {}
-    post = models.Post.query.get(id)
-    if not post:
-        return abort(404)
-    if post.board_id == 5 and not current_user.member:
-        return abort(404)
-    return render_template('sub5.html', mNum=5, sNum=post.board_id,
-                           board=board, mode='reply', post=post,
-                           form=LoginForm())
-"""
+                               next=next, form=LoginForm(), admin_users=admin_users)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
         login_user(form.user)
-        if current_user.member:
-            if current_user.member.cycle:
-                return redirect('/stem')
+        if current_user.ismember:
+
+            if request.host in ['gongwoo.snu.ac.kr', 'eng-stem.snu.ac.kr', 'honor.snu.ac.kr']:
+                if request.referrer.find('/stem/') > -1:
+                    return redirect(request.referrer)
+                else:
+                    return redirect('/stem')
             else:
-                return redirect('/member/modify')
+                return redirect('/stem')
+
         return redirect('/')
 
     return render_template('member/login.html', form=form)
-
 
 @app.route('/member/register', methods=['GET', 'POST'])
 def register():
@@ -369,19 +352,19 @@ def register():
 @mobile_template('/{mobile/}member/modify.html')
 @login_required
 def modify(template):
-    if current_user.member:
+    if current_user.ismember:
         form = ModifyMemberForm()
-        departments = models.Department.query.all()
-        stem_departments = models.StemDepartment.query.all()
+        departments = models.DeptUniv.query.all()
+        deptstems = models.DeptStem.query.all()
         if form.validate_on_submit():
             return render_template(
                 template, form=form,
-                departments=departments, stem_departments=stem_departments,
+                departments=departments, deptstems=deptstems,
                 message='수정이 완료되었습니다.')
         return render_template(
             template, form=form,
             departments=departments,
-            stem_departments=stem_departments)
+            deptstems=deptstems)
     else:
         form = ModifyForm()
         if form.validate_on_submit():
@@ -390,29 +373,20 @@ def modify(template):
                 message='수정이 완료되었습니다.')
         return render_template(template, form=form)
 
-@app.route('/stem/')
-def stem():
-	pass
-
 @app.route('/logout')
 def logout():
     form = LoginForm()
-    u = request.referrer
-    host = request.host
-    if (u == ('http://' + host + url_for('stem'))) or (u ==('https://' + host + url_for('stem'))):
-        logout_user()
-        return redirect('/m_login')
-    else:
-        logout_user()
-        return redirect('/')
-
-
-
+    logout_user()
+    return redirect('/')
 
 @app.errorhandler(401)
 def unauthorized(e):
-    return redirect('/login')
-
+    if request.MOBILE == True :
+        form = LoginForm()
+        return render_template('/member/mlogin.html', form=form)
+    else :
+        form = LoginForm()
+        return render_template('member/login.html', form=form)
 
 @app.errorhandler(403)
 def forbidden(e):
@@ -435,14 +409,14 @@ class WritePost(Resource):
         boardParser = reqparse.RequestParser()
         boardParser.add_argument('board', type=int, required=True)
         args = boardParser.parse_args()
-        board = models.Board.query.get(args['board'])
+        board = models.BoardPublic.query.get(args['board'])
         if not board:
             return abort(404)
         if board.id == 1 and not current_user.username in admin_users:
             return abort(403)
-        if board.id == 3:
+        if board.id == 2 and not current_user.username in admin_users:
             return abort(403)
-        if board.id == 5 and not current_user.member:
+        if board.id == 3:
             return abort(403)
 
         if request.MOBILE == False:
@@ -462,20 +436,20 @@ class WritePost(Resource):
         postParser.add_argument('title', type=str)
         postParser.add_argument('body', type=str)
         postParser.add_argument('boardID', type=int)
-        postParser.add_argument('level', type=int)
+        postParser.add_argument('hidden', type=int)
 
         args = postParser.parse_args()
-        board = models.Board.query.get(args['boardID'])
+        board = models.BoardPublic.query.get(args['boardID'])
         if not board:
             return abort(404)
-        if board.id == 5 and not current_user.member:
-            return abort(403)
+#        if board.id == 5 and not current_user.ismember:
+#            return abort(403)
 
 #        print (args)
 
-        post = models.Post(
-            args['level'], args['title'], args['body'], current_user.id,#
-            args['boardID'])
+        post = models.PostPublic(
+            args['hidden'], args['title'], args['body'], current_user,
+            board)
         db.session.add(post)
 
         files = request.files.getlist("files")
@@ -491,31 +465,28 @@ class WritePost(Resource):
 class ModifyPost(Resource):
     @login_required
     def get(self, id):
-        post = models.Post.query.get(id)
+        post = models.PostPublic.query.get(id)
 
         if not post:
             return abort(404)
 
-        if post.board_id == 5 and not current_user.member:
-            return abort(403)
-
-        if current_user.id != post.user_id:
+        if current_user.id != post.writer_id:
             return Response(
                 render_template('403.html', form=LoginForm()),
                 mimetype='text/html', status=403)
 
         if request.MOBILE == False:
             return Response(
-                render_template('sub5.html', mNum=5, sNum=post.board_id,
+                render_template('sub5.html', mNum=5, sNum=post.boardpublic_id,
                                 mode='modify', post=post,
-                                board=models.Board.query.get(post.board_id),
+                                board=models.BoardPublic.query.get(post.boardpublic_id),
                                 form=LoginForm()),
                 mimetype='text/html')
         else:
             return Response(
-                render_template('mobile/sub5.html', mNum=5, sNum=post.board_id,
+                render_template('mobile/sub5.html', mNum=5, sNum=post.boardpublic_id,
                                 mode='modify', post=post,
-                                board=models.Board.query.get(post.board_id),
+                                board=models.BoardPublic.query.get(post.boardpublic_id),
                                 form=LoginForm()),
                 mimetype='text/html')
 
@@ -527,19 +498,19 @@ class ModifyPost(Resource):
         postParser.add_argument('body', type=str)
 
         args = postParser.parse_args()
-        post = models.Post.query.get(id)
+        post = models.PostPublic.query.get(id)
 
         if not post:
             return abort(404)
 
-        if post.board_id == 5 and not current_user.member:
-            return abort(403)
+#        if post.boardpublic_id == 5 and not current_user.ismember:
+#            return abort(403)
 
-        if current_user.id != post.user_id:
+        if current_user.id != post.writer_id:
             return Response(
-                render_template('sub5_%d.html' % post.board_id, mNum=5,
-                                sNum=post.board_id, mode='view', post=post,
-                                board=models.Board.query.get(post.board_id),
+                render_template('sub5_%d.html' % post.boardpublic_id, mNum=5,
+                                sNum=post.boardpublic_id, mode='view', post=post,
+                                board=models.BoardPublic.query.get(post.boardpublic_id),
                                 form=LoginForm()),
                 mimetype='text/html')
 
@@ -553,40 +524,60 @@ class ModifyPost(Resource):
 
         db.session.commit()
 
-        if request.MOBILE == False:
-            return Response(
-                render_template('sub5.html', mNum=5, sNum=post.board_id,
-                                mode='view', post=post,
-                                board=models.Board.query.get(post.board_id),
-                                form=LoginForm()),
-                mimetype='text/html')
-        else:
-            return Response(
-                render_template('mobile/sub5.html', mNum=5, sNum=post.board_id,
-                                mode='view', post=post,
-                                board=models.Board.query.get(post.board_id),
-                                form=LoginForm()),
-                mimetype='text/html')
+        return redirect(url_for('viewPost', id=id))
+
 
 
 class DeletePost(Resource):
     @login_required
     def post(self, id):
-        post = models.Post.query.get(id)
-        if current_user.id != post.user_id:
+        post = models.PostPublic.query.get(id)
+        if current_user.id != post.writer_id:
             return "Not Allowed", 403
 
         db.session.delete(post)
         db.session.commit()
         return "Success", 200
 
+class DeleteFile(Resource):
+    @login_required
+    def get(self, save_name):
+        file = models.File.query.filter_by(link=save_name).first()
+        if not file is None:
+            if not file.postpublic_id is None:
+                posted = file.postpublic_id
+                uploader = models.PostPublic.query.filter_by(id=posted).first()
+                if current_user != uploader.publicwriter:
+                    return "Not Allowed", 403
+                else:
+                    delete_file(save_name)
+                    return "Success", 200
+            elif not file.postmember_id is None:
+                posted = file.postmember_id
+                uploader = models.PostMember.query.filter_by(id=posted).first()
+                if current_user != uploader.memberwriter:
+                    return "Not Allowed", 403
+                else:
+                    delete_file(save_name)
+                    return "Success", 200
+            elif not file.record_id is None:
+                posted = file.record_id
+                uploader = models.Record.query.filter_by(id=posted).first()
+                if current_user != uploader.recordwriter:
+                    return "Not Allowed", 403
+                else:
+                    delete_file(save_name)
+                    return "Success", 200
+        else:
+            return "Not Allowed", 403
+
+api.add_resource(DeleteFile, '/deletefile/<string:save_name>')
 
 user_fields = {
+    'id': fields.Integer,
     'nickname': fields.String,
     'username': fields.String,
-    'email': fields.String
 }
-
 
 comment_fields = {
     'id': fields.Integer,
@@ -599,7 +590,7 @@ comment_fields = {
 class Comment(Resource):
     @marshal_with(comment_fields)
     def get(self, commentID):
-        comment = models.Comment.query.get(commentID)
+        comment = models.CommentPublic.query.get(commentID)
         if comment:
             return comment
         return None, 404
@@ -613,11 +604,12 @@ class Comment(Resource):
         commentParser.add_argument('postID', type=int)
 
         args = commentParser.parse_args()
-        post = models.Post.query.get(args['postID'])
+        writer = models.User.query.get(args['userID'])
+        post = models.PostPublic.query.get(args['postID'])
         if not post:
             return None, 404
-        comment = models.Comment(
-            args['body'], args['userID'], args['postID'])
+        comment = models.CommentPublic(
+            args['body'], writer, post)
 
         db.session.add(comment)
         db.session.commit()
@@ -626,9 +618,9 @@ class Comment(Resource):
 
     @login_required
     def delete(self, id):
-        comment = models.Comment.query.get(id)
+        comment = models.CommentPublic.query.get(id)
         if comment:
-            if current_user == comment.author:
+            if current_user == comment.publiccommenter:
                 comment.remove()
                 return True, 200
             else:
@@ -651,35 +643,32 @@ class IdCheck(Resource):
 
 member_fields = {
     'id': fields.Integer,
+    'nickname': fields.String,
+    'username': fields.String,
+    'email': fields.String,
     'cycle': fields.Integer,
-    'stem_dept': fields.String,
-    'dept': fields.String,
-    'cv': fields.String,
-    'comment': fields.String,
+    'deptstem': fields.String,
+    'deptuniv': fields.String,
+    'cvpublic': fields.String,
+    'cvmember': fields.String,
     'img': fields.String,
     'cover': fields.String,
     'addr': fields.String,
     'phone': fields.String,
     'birthday': fields.String,
-    'user': fields.Nested(user_fields),
-    'social': fields.String
+    'social': fields.String,
+    'position': fields.String
 }
-
-
-restricted_user_fields = {
-    'nickname': fields.String
-}
-
 
 restricted_member_fields = {
     'id': fields.Integer,
+    'nickname': fields.String,
     'cycle': fields.Integer,
-    'stem_dept': fields.String,
-    'dept': fields.String,
-    'cv': fields.String,
+    'deptstem': fields.String,
+    'deptuniv': fields.String,
+    'cvpublic': fields.String,
     'img': fields.String,
     'cover': fields.String,
-    'user': fields.Nested(restricted_user_fields)
 }
 
 
@@ -693,19 +682,12 @@ class Members(Resource):
         return people
 
     def get(self):
-        people = db.session.query(models.Member) \
-                           .join(models.Member.user) \
-                           .filter(models.Member.cycle != 0) \
-                           .order_by(models.Member.cycle.desc()) \
+        people = models.User.query.filter_by(ismember=1) \
+                           .filter(models.User.cycle != 0) \
+                           .order_by(models.User.cycle.desc()) \
                            .order_by(models.User.nickname).all()
 
-        for person in people:
-            if person.stem_department:
-                person.stem_dept = person.stem_department.name
-            if person.department:
-                person.dept = person.department.name
-
-        if not current_user.is_anonymous() and current_user.member:
+        if not current_user.is_anonymous() and current_user.ismember:
             return self.full_get(people)
         return self.restricted_get(people)
 

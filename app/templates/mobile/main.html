@@ -7,7 +7,7 @@
 	    {% for article in rec %}
 	        <dd><a class="title2" href="post/{{article.id}}/view">{{ article.title }}
 	        {% if article.commentCount %} <span class="comment-count">[{{article.commentCount}}]</span>{% endif %}&nbsp;
-	        {% if article.level == 2 %}<img src="{{url_for('static', filename='images/ico_lock.gif')}}"  border='0' alt='LOCKED'/>{% endif %}
+	        {% if article.hidden == 1 %}<img src="{{url_for('static', filename='images/ico_lock.gif')}}"  border='0' alt='LOCKED'/>{% endif %}&nbsp;
 	        {% if article.new %}<img src="{{url_for('static', filename='images/ico_new.gif')}}"  border='0' alt='NEW'/>{% endif %}
 	        </a></dd>
 	    {% endfor %}
@@ -20,7 +20,7 @@
 	            <a href="{{ banner.href }}"><img class="banner img-rounded" src="{{ url_for('static', filename=('upload/mainbanner/' + banner.src)) }}" style="width: 0px; height: 0px; border:0;" alt="{{banner.description}}">
 	            </a>
 	        {% else %}
-	            <img class="banner img-rounded" src="../static/upload/mainbanner/{{ banner.src }}" style="width: 0px; height: 0px; border:0;" alt="{{banner.description}}">
+	            <a><img class="banner img-rounded" src="{{ url_for('static', filename=('upload/mainbanner/' + banner.src)) }}" style="width: 0px; height: 0px; border:0;" alt="{{banner.description}}"></a>
 	        {% endif %}
 	    {% endfor %}
 
@@ -30,7 +30,7 @@
         <div class="container">
             <div class="row">
                 <div class="col-md-12">
-                    <div class="slideshow1 cycle-slideshow" data-cycle-swipe="true" data-cycle-swipe-fx="scrollHorz" data-cycle-pager="#slider_links1" data-cycle-fx="scrollHorz">
+                    <div class="slideshow1 cycle-slideshow" data-cycle-swipe="true" data-cycle-swipe-fx="scrollHorz" data-cycle-pager="#slider_links1" data-cycle-fx="scrollHorz" data-cycle-slides="> a">
                         {{ PT_MainThumbImage(bannerRec,1) }}
                     </div>
                         <div id="slider_links1" class="center"></div>
@@ -46,7 +46,7 @@
                     <h2 class="section-heading text-center" style="margin-top:0; margin-bottom:20px;"><b>SNU Tomorrow's Edge Membership (STEM)</b></h2><hr>
                     <div class="m_images"><a href="/sub/4-1"><img src="{{ url_for('static', filename='images/m_recruit.png') }}" class="img-rounded" /></a></div>
                     <div class="m_images"><a href="/sub/2-1"><img src="{{ url_for('static', filename='images/m_activities.png') }}" class="img-rounded" /></a></div>
-                    <div class="m_images"><img src="{{ url_for('static', filename='images/m_notice_img.gif') }}" class="img-rounded" /></div>
+                    <div class="m_images"><a href="http://stementor.tistory.com/" target="_blank"><img src="{{ url_for('static', filename='images/m_notice_img.gif') }}" class="img-rounded" /></a></div>
                 </div>
             </div><hr>
             <div class="row">

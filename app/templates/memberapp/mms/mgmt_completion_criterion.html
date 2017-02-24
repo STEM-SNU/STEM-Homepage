@@ -1,8 +1,9 @@
 {% extends "memberapp/base.html" %}
 {% block content %}
+<!--link href="{{url_for('static', filename='select2/css/select2.min.css')}}" rel="stylesheet" /-->
 <section class="content-header">
     <h1>
-        Member Management System <small>이수 기준서 관리</small>
+        Member Management System <small>출결 및 이수 관리</small>
     </h1>
     <ol class="breadcrumb">
         <li><a href="/stem"><i class="fa fa-address-card"></i> Home</a></li>
@@ -12,16 +13,433 @@
 
 <section class="content">
 <div class="row">
+      <div class="col-xs-12" style="margin-bottom:10px;">
+                <select name="" class="form-control printhide" onChange="navChange3(this); return true;">
+                  <option value='' selected disabled>분기 이동</option>
+                  {% for quarter in quarters %}
+                  <option value='/stem/mms/completion_criterion/{{quarter.year}}/{{quarter.semester}}'>{{quarter.description}}</option>
+                  {% endfor %}
+                  </select>
+                  <script language="javascript">
+                  function navChange3(popup) {
+                    if (popup.options[popup.selectedIndex].value != "")
+                    {
+                      window.open(popup.options[popup.selectedIndex].value, '_self');
+                      popup.selectedIndex=0;
+                    }
+                  }
+                  </script>
+      </div>
+
       <div class="col-xs-12">
-          <div class="box">
-            <div class="box-header with-border">
-              <h3 class="box-title">Under Construction...</h3>
+          <div class="box box-warning">
+            <div class="box-header with-border text-center">
+              <h3 class="box-title"><img src="{{ url_for('static', filename='images/SNUlogo.png') }}", style="width:50px; margin:0 10px 0 0;"><b>STEM 분기 이수 기준서</b></h3>
             </div><!-- /.box-header -->
-            <div class="box-body">
-            <p>Complete Soon!!</p>
+            <div class="box-body" style="padding:0;">
+            <table class="table table-bordered table-responsive" id="innertable">
+                    <tbody>
+                    <tr>
+                    <td style="width:50px;"><b>적용<br>기간</b></td>
+                    <td class="text-center">{{quarter.description}}</td>
+                    </tr>
+                    <tr>
+                    <td><b>적용<br>대상</b></td>
+                    <td class="text-center">{{quarter.year}}년 {{quarter.semester}}/4분기 Active 회원 전체</td>
+                    </tr>
+                    <tr>
+                    <td><b>활동<br>목록</b></td>
+                    <td style="padding:0;">
+                        <table class="table table-bordered table-responsive" style="border:hidden; margin-bottom:0;">
+                        <tbody>
+                        <tr>
+                        <td style="width:40px;"><small>정규<br>활동</small></td>
+                        <td>
+                            <div class="list-group">
+                            {% for activity in quarter.activities %}
+                            {% if activity.type ==0 %}
+                                <a class="list-group-item"><span {% if (current_user.id in current.page_manager_ids()) and (quarter.id == current.quarter.id) %}onClick="actDetail({{activity.id}});"{% endif %}>{{activity.name}} ({{activity.totalscore}}점)</span>{% if (current_user.id in current.page_manager_ids()) and (quarter.id == current.quarter.id) %}<span class="badge printhide" onClick="deleteActivity({{activity.id}})" style="position:absolute; right:12px; top:12px;"><i class="fa fa-times"></i></span>{% endif %}</a>
+                            {% endif %}
+                            {% endfor %}
+                            {% if (current_user.id in current.page_manager_ids()) and (quarter.id == current.quarter.id) %}
+                                <a class="list-group-item printhide" onclick="MakeAct(0);"><i class="fa fa-plus"></i>&nbsp;&nbsp;&nbsp;정규활동</a>
+                            {% endif %}
+                            </div><div style="width:80%; margin:0 auto;"><small>
+                            ※ 정규활동에서 이수 점수 {{regularactscore}}점{% if quarter.activity_score - regularactscore > 0 %}, 그리고 특별활동에서 이수 점수 {{quarter.activity_score - regularactscore}}점{% endif %}을 포함하여 총 <span style="color:blue; font-size:2rem;"><b>{{quarter.activity_score}}</b></span>점을 채워야 이수를 할 수 있으며, 부득이한 경우 정규활동은 특별활동의 이수 점수로 대체할 수 있다.</small></div>
+                        </td>
+                        </tr>
+                        <tr>
+                        <td><small>특별<br>활동<br></small></td>
+                        <td>
+                            <div class="list-group">
+                            {% for activity in quarter.activities %}
+                            {% if activity.type ==1 %}
+                                <a class="list-group-item"><span {% if (current_user.id in current.page_manager_ids()) and (quarter.id == current.quarter.id) %}onClick="actDetail({{activity.id}});"{% endif %}>[특별] {{activity.name}} ({{activity.totalscore}}점){% if (current_user.id in current.page_manager_ids()) and (quarter.id == current.quarter.id) %}</span><span class="badge printhide" onClick="deleteActivity({{activity.id}})" style="position:absolute; right:12px; top:12px;"><i class="fa fa-times"></i></span>{% endif %}</a>
+                            {% endif %}
+                            {% endfor %}
+                            {% for activity in quarter.activities %}
+                            {% if activity.type ==2 %}
+                                <a class="list-group-item"><span {% if (current_user.id in current.page_manager_ids()) and (quarter.id == current.quarter.id) %}onClick="actDetail({{activity.id}});"{% endif %}>[소그룹] {{activity.name}} ({{activity.totalscore}}점)</span>{% if (current_user.id in current.page_manager_ids()) and (quarter.id == current.quarter.id) %}<span class="badge printhide" onClick="deleteActivity({{activity.id}})" style="position:absolute; right:12px; top:12px;"><i class="fa fa-times"></i></span>{% endif %}</a>
+                            {% endif %}
+                            {% endfor %}
+                            {% if (current_user.id in current.page_manager_ids()) and (quarter.id == current.quarter.id) %}
+                                <a class="list-group-item printhide">
+                                <div onclick="MakeAct(1);" style="display:inline-block; margin:0; width:40%"><i class="fa fa-plus"></i>&nbsp;&nbsp;&nbsp;특별활동</div>
+                                <div onclick="MakeAct(2);" style="display:inline-block; margin:0; width:40%"><i class="fa fa-plus"></i>&nbsp;&nbsp;&nbsp;소그룹</div>
+                                </a>
+                            {% endif %}
+                            </div><div style="width:80%; margin:0 auto;"><small>
+                            ※ 단, 활동 점수가 명시되지 않은 항목(0점으로 기재)은 2시간 당 1점, 하루 최대 3점.<br>
+                            ※ 또한, 특별 활동은 정기회의 의결을 거쳐 상시로 추가 가능.</small></div>
+                        </td>
+                        </tr>
+                        <tr>
+                        <td><small>부서<br>회의<br></small></td>
+                        <td>
+                            <div class="list-group" name="detailopen">
+                            <a class="list-group-item">
+                            부서별 기획 회의
+                            </a>
+                            </div><div style="width:80%; margin:0 auto; display:none;"><small>
+                            ※ 부서별 회의의 개회, 부원들의 부서 활동에 대한 이수는 각 부서별 부장의 재량에 맡김.</small></div>
+                        </td>
+                        </tr>
+                        <tr>
+                        <td><small>정기<br>회의<br></small></td>
+                        <td>
+                            <div class="list-group" name="detailopen">
+                            <a class="list-group-item">
+                            정기회의 참여 (공식 사유 이외 <span style="color:red; font-size:2rem;"><b>{{quarter.conference_absence}}</b></span>회 미만 결석)
+                            </a>
+                            </div><div style="width:80%; margin:0 auto; display:none;"><small>
+                            ※ 공식사유로 인한 결석은 최대 24시간 전까지 공시해야 인정.<br>
+                            ※ 단, 공식 사유는 시험 하루 전, 대학 공식 행사(대회, 학회 등) 및 기타 회장의 허가에 한함<br>
+                            ※ 회의 부분참여(정시 이후 참여 또는 조퇴) 3회 시 결석 1회 처리<br>
+                            ※ 회의 불참자에 한하여, 회의 이후 정해진 기한 이내에 회의록 체크하지 않을 시 지각에 준하는 처리 부여</small></div>                        
+                        </td>
+                        </tr>
+                        </tbody>
+                        </table>
+                    </td>
+                    <tr>
+                        <td><b>이수<br>기준</b></td>
+                        <td class="text-center">
+                            <div style="width:80%; margin:0 auto;"><small>
+                            ● 모든 회원은 정규 활동, 부서 활동, 그리고 정기 회의를 모두 이수해야 한다.<br>
+                            ● 부서 회의 및 기타 소그룹 활동은 부서 또는 팀별 재량에 맡긴다.<br>
+                            </small></div>               
+                        </td>
+                        </tr>
+                    </tr>
+                    </tbody>
+                </table>
+                {% if (current_user.id in current.page_manager_ids()) and (quarter.id == current.quarter.id) %}<i class="fa fa-cog printhide"  style="position:absolute; top:5px; right:5px; font-size:2rem;" onClick="changeScore();"></i>{% endif %}
             </div>
             </div>
-            </div>
+                <div class="text-center"><big>위 이수 조건을 만족하는 경우에<br>이번 분기를 이수한 것으로 정한다.</big></div><br>
+                <div class="text-center">책임자 : {{year}}년 {{semester}}분기 현 회장<br>출결관리자 : {{year}}년 {{semester}}분기 현 총무</div><br>
+                <a class="btn btn-primary pull-right printhide" href="javascript:window.print()">프린트하기</a>
+
+   </div>             
+    {% if (current_user.id in current.page_manager_ids()) and (quarter.id == current.quarter.id) %}
+  <div class="col-xs-6 col-xs-offset-3 col-md-6 col-md-offset-3 printhide"><br>
+      <div onClick="javascript:jQuery('.card-changequarter').trigger('openModal')" class="btn btn-danger btn-block btn-lg" style="margin:0 15px;">신규 분기 개시</div>
+  </div>
+    {% endif %}
 </div>
 </section>
+
+<div class="card-makeact">
+    <div class="box" style="background:white;">
+    <form name="makeactivity" id ="makeactivity" method="post" enctype="multipart/form-data">
+      <div class="box-header with-border text-center">
+        <h3 style="margin:0;">{{year}}년 {{semester}}분기 활동 추가</h3>
+      </div>
+      <div class="box-body">
+        <div class="text-center" style="margin:0 0 10px 0;">
+        <input type="radio" id="radio1" name="type" value="0">
+            <label for="radio1">정규활동</label>
+        <input type="radio" id="radio2" name="type" value="1">
+            <label for="radio2">특별활동</label>
+        <input type="radio" id="radio3" name="type" value="2">
+            <label for="radio3">소그룹</label>
+        </div>
+        <table id="active" cellspacing="0" class="table-striped" summary="활동추가" style="width:100%;">
+              <tbody>
+                  <tr>
+                      <th scope="row" class="import text-center"> 활동명</th>
+                      <td style="padding:5px 0 5px 10px; text-align:center;">
+                          <input name="name" type="text" class="form-control">
+                      </td>
+                  </tr>
+                  <tr>
+                      <th scope="row" class="import text-center"> 활동점수</th>
+                      <td style="padding:5px 0 5px 10px; text-align:center;">
+                          <select name="totalscore" type="text" class="form-control">
+                          <option value='5'>5점</option>
+                          <option value='4'>4점</option>
+                          <option value='3' selected>3점</option>
+                          <option value='2'>2점</option>
+                          <option value='1'>1점</option>
+                          <option value='0'>0점</option>
+                          </select>
+                      </td>
+                  </tr>
+                </tbody>
+        </table>
+        <input type="hidden" name="quarter_id" value="{{quarter.id}}">
+        <div class="nav nav-pills nav-justified text-center" style="padding:10px 0;">
+          <button type="submit" class="btn btn-primary" name="send_makeactivity">활동 생성</button>
+          <div onClick="CloseModal();" class="btn btn-primary">취소</div>
+        </div>
+        <p class="text-center">정규 : 활동 생성 시 전체 Active 회원이 자동으로 활동 등록
+        <br>특별, 소그룹 : 활동 생성 후 별도로 참여 회원 등록</p>
+      </div>
+      </form>
+    </div>
+    <a href="javascript:void(0)" onclick="CloseModal()">
+      <i class="modal-close fa fa-remove pull-right" style="position:absolute; top:5px; right:5px;"></i>
+   </a>
+</div>
+
+<div class="card-changescore">
+    <div class="box" style="background:white;">
+    <form name="modifyquarter" id="modifyquarter" method="post" enctype="multipart/form-data">
+      <div class="box-header with-border text-center">
+        <h3 style="margin:0;">{{year}}년 {{semester}}분기 점수 기준</h3>
+      </div>
+      <div class="box-body">
+        <table id="active" cellspacing="0" class="table-striped" summary="이수점수변경" style="width:100%;">
+              <tbody>
+                  <tr>
+                      <th scope="row" class="import text-center"> 이수 기준점수</th>
+                      <td style="padding:5px 0 5px 10px; text-align:center;">
+                          <select name="activity_score" type="text" class="form-control">
+                          {% for n in range(20)%}
+                          {% if n+1 == quarter.activity_score %}
+                          <option value='{{n+1}}' selected>{{n+1}}점</option>
+                          {% else %}
+                          <option value='{{n+1}}'>{{n+1}}점</option>
+                          {% endif %}
+                          {% endfor %}
+                          </select>
+                      </td>
+                  </tr>
+                  <tr>
+                      <th scope="row" class="import text-center"> 회의 페널티</th>
+                      <td style="padding:5px 0 5px 10px; text-align:center;">
+                          <select name="conference_absence" type="text" class="form-control">
+                          {% for n in range(5)%}
+                          {% if n+1 == quarter.conference_absence%}
+                          <option value='{{n+1}}' selected>{{n+1}}회</option>
+                          {% else %}
+                          <option value='{{n+1}}'>{{n+1}}회</option>
+                          {% endif %}
+                          {% endfor %}
+                          </select>
+                      </td>
+                  </tr>
+                </tbody>
+        </table>
+        <div class="nav nav-pills nav-justified text-center" style="padding:10px 0;">
+          <button type="submit" class="btn btn-primary">점수 설정</button>
+          <div onClick="CloseModal();" class="btn btn-primary">취소</div>
+        </div>
+        <p class="text-center">회의 페널티는 '이하'가 아닌 '미만'입니다.</p>
+      </div>
+      </form>
+    </div>
+    <a href="javascript:void(0)" onclick="CloseModal()">
+      <i class="modal-close fa fa-remove pull-right" style="position:absolute; top:5px; right:5px;"></i>
+   </a>
+</div>
+
+<div class="card-changequarter">
+    <div class="box" style="background:white;">
+      <div class="box-header with-border text-center">
+        <h3 style="margin:0;"> 신규 분기 개시<br><small>새로운 이수기준서를 작성합니다.</small></h3>
+      </div>
+      <div class="box-body">
+        <p class="text-center" style="color:blue;"><b>반드시 새로운 분기를 개시하기 직전에만 사용해주세요.</b></p>
+        <p class="text-center">분기 마감 시에 사용되며, <b>더 이상 기존의 이수기준서를 수정할 수 없습니다.</b>
+        <br>(실수로 진행한 경우, 홈페이지 관리자에게 문의하세요.)</p>
+        <div class="nav nav-pills nav-justified text-center" style="padding:0 0 10px 0;">
+          <button type="button" onClick="newQuarter()" class="btn btn-danger">확인하였으며 진행하겠습니다.</button>
+          <button onClick="CloseModal()" class="btn btn-danger">취소</button>
+        </div>
+        <p class="text-center" style="color:red;"><b>이 기능을 사용한 후에는 기존의 이수기준서를 수정할 수 없습니다.</b></p>
+      </div>
+    </div>
+    <a href="javascript:void(0)" onclick="CloseModal()">
+      <i class="modal-close fa fa-remove pull-right" style="position:absolute; top:5px; right:5px;"></i>
+   </a>
+</div>
+
+{% for activity in quarter.activities %}
+<div class="card-actdetail-{{activity.id}}">
+    <div class="box" style="background:white;">
+      <div class="box-header with-border text-center">
+        <h3 style="margin:0;">활동 세부사항<br><small>{{activity.name}}</small></h3>
+      </div>
+      <div class="box-body">
+        <p class="text-center"><b>참여회원 명단</b></p>
+        <div class="text-center" style="margin:10px 0;">
+        {% if not activity.members %}
+        현재 참여 중인 회원이 없습니다.
+        {% else %}
+        {% for member in activity.members %}
+         <span class="label label-default" style="line-height:2rem;">{{member.cycle}}기 {{member.nickname}}</span> 
+        {% endfor %}
+        {% endif %}
+        </div>
+        <div class="nav nav-pills nav-justified text-center" style="padding:0 0 10px 0;">
+          <button type="button" onClick="CloseModal()" class="btn btn-primary">확인</button>
+        </div>
+        {% if (current_user.id in current.page_manager_ids()) and (quarter.id == current.quarter.id) %}
+        <div class="box-footer">
+        <p class="text-center" style="font-weight:bold;">활동명, 활동점수 수정</p>
+          <form class="modifyact_form_{{activity.id}}" onsubmit="return false;" method="post">
+          <table cellspacing="0" class="table-striped" summary="활동수정" style="width:100%;">
+                <tbody>
+                    <tr>
+                        <th scope="row" class="import text-center"> 활동명</th>
+                        <td style="padding:5px 0 5px 10px; text-align:center;">
+                            <input name="id" type="hidden" value="{{activity.id}}">
+                            <input name="name" type="text" class="form-control" value="{{activity.name}}">
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="import text-center"> 활동점수</th>
+                        <td style="padding:5px 0 5px 10px; text-align:center;">
+                            <select name="totalscore" type="text" class="form-control">
+                            {% for n in range(6) %}
+                            <option value='{{n}}'{% if n == activity.totalscore%}selected{% endif %}>{{n}}점</option>
+                            {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                  </tbody>
+          </table>
+          <div class="text-center"><button type="button" onClick="modifyActivity({{activity.id}})" class="btn btn-default btn-sm">수정</button></div>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    <a href="javascript:void(0)" onclick="CloseModal()">
+      <i class="modal-close fa fa-remove pull-right" style="position:absolute; top:5px; right:5px;"></i>
+   </a>
+</div>
+{% endfor %}
+
+<style>
+#innertable td {vertical-align:middle;}
+#innertable td div {margin-bottom:5px; text-align:center;}
+@media print {
+    .printhide {display:none;}
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{url_for('static', filename='js/jquery.easyModal.js')}}"></script>
+<!--script src="{{url_for('static', filename='select2/js/select2.min.js')}}"></script-->
+<script>
+jQuery("[class^=card]").easyModal({overlay:0.2});
+
+function MakeAct(acttype) {
+    jQuery(".card-makeact").trigger('openModal');
+    jQuery("input:radio").removeProp("checked");
+    jQuery("input:radio[value="+acttype+"]").prop("checked", true);
+}
+
+function changeScore(acttype) {
+    jQuery(".card-changescore").trigger('openModal');
+}
+
+function actDetail(id) {
+    jQuery(".card-actdetail-" + id).trigger('openModal');
+}
+
+function CloseModal() {
+    jQuery("[class^=card]").trigger('closeModal');
+}
+
+function deleteActivity(id) {
+    var r = confirm("정말로 삭제하시겠습니까?");
+    if (r) {
+        jQuery.ajax({
+            url: "/stem/api/activity/" + id + "/delete",
+            type: "POST",
+            success: function(data) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function newQuarter() {
+  jQuery.ajax({
+    url: "/stem/api/quarter/new",
+    type: "POST",
+    success: function(data) {
+      location.href="/stem/mms/completion_criterion"
+    }
+  });
+}
+
+function modifyActivity(id) {
+    var r =confirm("정말로 수정하시겠습니까?");
+    if (r) {
+      jQuery.ajax({
+        url: "/stem/api/activity/modify",
+        type: "POST",
+        data: $(".modifyact_form_"+id).serialize(),
+        success: function(data) {
+          location.reload();
+        }
+      });
+    }
+}
+
+$("#makeactivity").submit(function() {
+        jQuery.ajax({
+            url: '/stem/api/activity/make',
+            data: $('#makeactivity').serialize(),
+            type: 'POST',
+            success: function(data) {
+                location.reload();
+            }
+        });
+    });
+
+$("#modifyquarter").submit(function() {
+        var id = {{quarter.id}}
+        jQuery.ajax({
+            url: '/stem/api/quarter/'+id+'/modify',
+            data: $('#modifyquarter').serialize(),
+            type: 'POST',
+            success: function(data) {
+                location.reload();
+            }
+        });
+    });
+
+$(document).ready(function(){
+if($(window).width()>=768) { $("[class^=card]").css('width', $(window).width()*0.5)
+} else {$("[class^=card]").css('width', $(window).width()*0.9)};
+});
+$(window).resize(function () {
+if($(window).width()>=768) { $("[class^=card]").css('width', $(window).width()*0.5)
+} else {$("[class^=card]").css('width', $(window).width()*0.9)};
+});
+    $("div[name=detailopen]").click(function(){
+        var body = $(this).siblings("div");
+        if( body.is(":visible") ){
+            body.slideUp();
+        }else{
+            body.slideDown();
+        }
+    });
+</script>
 {% endblock %}

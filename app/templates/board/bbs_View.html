@@ -15,7 +15,7 @@
     </tr>
     <tr>
         <th scope="row">작성자</th>
-        <td>{{ post.author.nickname }}</td>
+        <td>{{ post.publicwriter.nickname }}</td>
         <th scope="row">작성일</th>
         <td class="date" data-timestamp='{{ post.timestamp.timestamp() }}' data-time-format='YYYY-MM-DD HH:mm:ss'></td>
         <th scope="row">조회</th>
@@ -24,22 +24,23 @@
 </thead>
 <tbody>
     <tr>
-        <td colspan="6" style="padding:10px;">
+        <td colspan="6" style="margin:10px;">
             {% if post.files %}
-            <div class=attachedFile><dl><dt>
+            <div class=attachedFile style="width:100%; display:block;"><dl><dt>
                 <i class="fa fa-archive"></i>
                 <button type="button" class="fileToggle" onclick="changeFileArea()" style="color: #3383AE;">첨부파일보기 ({{ post.files | length }})</button></dt>
                 <dd>
                     <ul class="nostyle files" style="display:none;" id="fileArea" name="fileArea">
                         {% for file in post.files %}
-                            <li class="nostyle"><a href="/static/upload/{{ file.link }}" download="{{file.name}}"><i class="fa fa-file"></i> {{ file.name }}</a></li>
+                            <li class="nostyle"><a href="/static/upload/{{ file.link }}" download="{{file.name}}"><i class="fa fa-file"></i> {{ file.name }}</a>{% if post.publicwriter.id == current_user.id %} &nbsp;<span onClick="deleteFile('{{file.link}}')"><i class="fa fa-times"></i></span>{% endif %}</li>
                         {% endfor %}
                     </ul>
                 </dd></dl>
             </div>
             {% endif %}
 
-            <div><div id="HKeditorContent" name="HKeditorContent">{{ post.body | safe}}</div></div>
+            <div name="HKeditorContent">{{ post.body | safe}}</div>
+
         </td>
     </tr>
     {% if not current_user.is_anonymous() %}
@@ -61,8 +62,8 @@
             <ul id="comments">
                 {% for comment in post.comments %}
                 <li data-comment-id="{{comment.id}}">
-                    <h5>{{comment.author.nickname}}&nbsp;<small>{{comment.timestamp.strftime('%Y-%m-%d %H:%M')}}</small>
-                        {% if comment.author == current_user %} <i onclick="deleteComment({{comment.id}})" class="fa fa-times command-elem"></i>{% endif %}
+                    <h5>{{comment.publiccommenter.nickname}}&nbsp;<small>{{comment.timestamp.strftime('%Y-%m-%d %H:%M')}}</small>
+                        {% if comment.publiccommenter == current_user %} <i onclick="deleteComment({{comment.id}})" class="fa fa-times command-elem"></i>{% endif %}
                     </h5>
                     <div class="comment-body">
                     {{comment.body | nl2br}}
@@ -75,7 +76,7 @@
 </tbody>
 </table>
 
-</form>
+
 
 <div style="float:left; padding: 10px 0;">
     {% if next %}
@@ -99,19 +100,13 @@
 </div>
 
 <div style="float:right; padding: 10px 0;">
-    {% if post.board.reply %}
-        <button class="button2" onclick="javaScript:writeReply({{ post.id }})">답변</button>
-    {% endif %}
 
-    {% if (not current_user.is_authenticated() and post.board.isPublic) or (current_user.is_authenticated() and post.author.id == current_user.id) %}
+    {% if (current_user.is_authenticated() and post.publicwriter.id == current_user.id) %}
         <button class="button2" onclick="location.href='modify'">수정</button>
-        <button class="button2" onclick="deletePost({{ post.id }}, {{post.board.id}})">삭제</button>
-    {% elif post.board.isPublic %}
-        <button class="button2" onclick="javascript:modifyPostPwd({{ post.id }})">수정</button>
-        <button class="button2" onclick="javascript:deletePostPwd({{ post.id }}, {{post.board.id}})">삭제</button>
+        <button class="button2" onclick="deletePost({{ post.id }}, {{post.boardpublic.id}})">삭제</button>
     {% endif %}
 
-    <button class="button2" onClick="location.href='/sub/5-{{post.board.id }}'" style="cursor:pointer">목록</button>
+    <button class="button2" onClick="location.href='/sub/5-{{post.boardpublic.id }}'" style="cursor:pointer">목록</button>
 </div>
 
 <div style="height:50px;"></div>
@@ -145,6 +140,19 @@ function deleteComment(commentID) {
     })(jQuery);
 }
 
+function deleteFile(filename) {
+    var r = confirm("정말로 삭제하시겠습니까?");
+        if (r) {
+            jQuery.ajax({
+                url: "/deletefile/" + filename,
+                type: "GET",
+                success: function(data) {
+                    location.reload();
+                }
+            });
+        }
+}
+
 function submitComment() {
     (function ($) {
         if($("#comment-text").val() == ""){alert("빈 댓글입니다."); return;}
@@ -161,7 +169,7 @@ function submitComment() {
                 data.body.replace("\n","<br>");
                 var time = moment(data.timestamp).utcOffset(0);
                 var text = "<li data-comment-id=" + data.id + "><h5>" +
-                    data.author.nickname + "&nbsp;" + "<small>" + time.format('YYYY-MM-DD HH:mm') +
+                    "{{current_user.nickname}}" + "&nbsp;" + "<small>" + time.format('YYYY-MM-DD HH:mm') +
                     "</small> <i onclick='deleteComment(" + data.id + ")'" +
                     "class='fa fa-times command-elem'></i></h5>" +
                     "<div class='comment-body'>" + data.body.replace(/\n/g,'<br>') + "</div></li>";

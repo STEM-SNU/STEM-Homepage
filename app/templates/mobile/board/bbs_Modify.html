@@ -6,26 +6,26 @@
 <table class="table" id="mobilepost" border="0" summary="글 내용을 작성" style="margin:10px auto;">
 
     <thead>
-        {% if board.id == 2 %}
+        {% if board.id == 5 %}
         <tr>
             <th scope="row">잠금설정</th>
             <td colspan="3">
-                <input name="level" type="radio" value="1" checked style="border:none;">
+                <input name="hidden" type="radio" value="0" checked style="border:none;">
                 공개글
-                <input name="level" type="radio" value="2" style="border:none;">
+                <input name="hidden" type="radio" value="1" style="border:none;">
                 비공개글
             </td>
         </tr>
         {% else %}
-        <input type="hidden" name="level" value="1">
+        <input type="hidden" name="hidden" value="0">
         {% endif %}
         <tr style="background-color:rgb(242,242,242)">
             <th scope="row">작성자</th>
-            <td>{{ post.author.nickname }}</td>
+            <td>{{ post.publicwriter.nickname }}</td>
         </tr>
         <tr>
             <th scope="row">Email</th>
-            <td>{{ post.author.email }}</td>
+            <td>{{ post.publicwriter.email }}</td>
         </tr>
         <tr style="background-color:rgb(242,242,242)">
             <th scope="row">제목</th>

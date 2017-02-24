@@ -1,25 +1,31 @@
 import os
 import pytz
 import uuid
+import math
 
 from flask import Blueprint, render_template, abort, current_app, redirect, \
-    request, url_for
+    request, url_for, flash
 from jinja2 import TemplateNotFound
 from flask.ext.login import login_user, logout_user, current_user, \
     login_required
 from flask.ext.restful import Api, Resource, reqparse, fields, marshal_with
+from flask.ext.mail import Mail, Message
 from functools import wraps
 
 from .forms import ModifyMemberForm, ModifyStemDeptOnly
+from .helper import send_email
+from .member_help import Current
 
 from werkzeug import secure_filename
 
 from sqlalchemy import or_, and_, not_
 from sqlalchemy.sql.expression import func
+from sqlalchemy.orm import load_only
 from datetime import datetime, timedelta
 
-from app import db, models, app, helper, notification
+from app import db, models, app, helper, notification, mail
 
+from operator import itemgetter
 
 member_app = Blueprint('member_app', __name__,
                        template_folder='templates/memberapp')
@@ -29,93 +35,350 @@ def member_required(func):
     @wraps(func)
     @login_required
     def decorated_view(*args, **kwargs):
-        if not current_user.member:
-            return redirect('/')
+        if not current_user.ismember:
+            return abort(403)
         return func(*args, **kwargs)
     return decorated_view
 
+def note(type):
+    if type == 0:
+        sent_notes = models.Note.query.filter_by(sent_id=current_user.id) \
+            .filter_by(sent_del=0).order_by(models.Note.timestamp.desc()) \
+            .all()
+        return sent_notes
+    else:
+        received_notes = models.Note.query.filter_by(recv_id=current_user.id) \
+            .filter_by(recv_del=0).order_by(models.Note.timestamp.desc()) \
+            .all()
+        return received_notes
 
 @member_app.route('/')
 @member_required
 def main():
-    member = current_user.member
+    memoes = models.Memo.query.order_by(models.Memo.id.desc()).limit(3).all()
     
-#    task_levels = [0, 1, 2]
-#    task_lists = []
-#
-#    for level in task_levels:
-#        task_lists.append(
-#            models.Task.query
-#            .filter(or_(models.Task.contributors.contains(member),
-#                        models.Task.creator == member))
-#            .filter(models.Task.status != 3)
-#            .filter_by(level=level).all())
-#    task_lists[2] = [t for t in task_lists[2] if t.parents]
+    personal_board = models.BoardMember.query.filter(and_(models.BoardMember.group_id==10, models.BoardMember.owner==current_user)).first()
+    
+    preferred_boards = current_user.preferred_boards
 
-    mem = models.Member
-    issues = models.Task.query.get(0).children[::-1][0:3]
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
+    recent_posts = models.PostMember.query.order_by(models.PostMember.id.desc()).limit(10).all()
 
     try:
         return render_template(
-            'dashboard.html', member=current_user.member,
-            nav_id=1,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(),
-            manager=manager, recruitcycle=recruitcycle, issues=issues,mem=mem)
+            'dashboard.html', current_user=current_user,
+            nav_id=1, notifications=notification.Generate(current_user), memoes=memoes, snotes=note(0), rnotes=note(1),
+            personal_board = personal_board, preferred_boards = preferred_boards,
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(), 
+            recent_posts=recent_posts, current=Current())
     except TemplateNotFound:
         abort(404)
 
-@member_app.route('/mms/completion_state')
+@member_app.route('/search')
 @member_required
-def CompletionState():
+def search():
+    search_string = request.args.get('q')
+    if search_string:
+        matched_people = models.User.query.filter(and_(models.User.ismember==True,
+                            models.User.nickname.like("%"+search_string+"%"))). \
+                         order_by(models.User.cycle).order_by(models.User.nickname).all()
+        matched_people_ids = []
+        for person in matched_people:
+            id = person.id
+            matched_people_ids.append(id)
+        matched_boards = models.BoardMember.query. \
+                         filter(or_(models.BoardMember.title.like("%"+search_string+"%"),
+                            models.BoardMember.owner_id.in_(matched_people_ids))). \
+                         order_by(models.BoardMember.group_id).all()
+    else:
+        if request.referrer:
+            return redirect(request.referrer)
+        else:
+            return redirect(url_for('.main'))
 
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
 
     try:
-        return render_template('memberapp/mms/completion_state.html', member=current_user.member, notifications=notification.Generate(current_user.member), nav_id=2, boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
+        return render_template('search.html', matched_people=matched_people, matched_boards=matched_boards,
+            notifications=notification.Generate(current_user),snotes=note(0), rnotes=note(1),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(), current=Current(),
+            search_string = search_string)
+    except TemplateNotFound:
+        abort(404) 
+
+@member_app.route('/mms/completion_state', methods=['GET','POST'])
+@member_required
+def MoveToCompletionState():
+    if request.args:
+        name = request.args.get('name')
+        cycle = request.args.get('cycle')
+        
+        if not (name or cycle):
+            abort(404)
+
+        members = models.User.query.filter_by(cycle=cycle).all()
+        mem_id=[]
+        for member in members:
+            if member.nickname == name:
+                mem_id.append(member.id)
+        if len(mem_id) > 1:
+            flash(str(len(mem_id)) + ' results are found. Search again for the next result.')
+            for n in range(len(mem_id)):
+                if mem_id[n] == int(request.referrer.split("/")[::-1][0]):
+                    n = (n+1)%(len(mem_id))
+                    moveid = mem_id[n]
+                    break
+                else:
+                    moveid = mem_id[0]
+        elif len(mem_id) == 1:
+            moveid = mem_id[0]
+        else:
+            moveid = request.referrer.split("/")[::-1][0]
+    else:
+        moveid = current_user.id
+
+    return redirect(url_for('.CompletionState', mem_id_shown=moveid))
+
+@member_app.route('/mms/completion_state/<int:mem_id_shown>')
+@member_required
+def CompletionState(mem_id_shown):
+    if (not current_user.id in Current().page_manager_ids()) and (current_user.id != mem_id_shown):
+        abort(403)
+
+    recentyear = Current().year
+    recentsemester = Current().semester
+
+    correspondmember = models.User.query.filter_by(id=mem_id_shown).first()
+
+    activities = correspondmember.activities
+    conferences = correspondmember.conferences
+    quarters = models.Quarter
+    scoretable = models.Member_Activity
+    statetable = models.Member_Conference
+
+    scoresum = 0
+    statesum = 0
+    quarter_id_list = []
+    completion = []
+
+    for activity in activities:
+         if (not activity.quarter_id in quarter_id_list):
+             quarter_id_list.append(activity.quarter_id)
+
+
+    for conference in conferences:
+        if (not conference.quarter_id in quarter_id_list):
+            quarter_id_list.append(conference.quarter_id)
+
+    quarter_id_list.sort(reverse=True)
+
+    for id in quarter_id_list:
+        for activity in activities:
+            if activity.quarter_id == id:
+                score = scoretable.query.filter_by(activity_id=activity.id).filter_by(member_id=mem_id_shown).first().score
+                scoresum = scoresum + score
+        for conference in conferences:
+            if conference.quarter_id == id:
+                state = statetable.query.filter_by(conference_id=conference.id).filter_by(member_id=mem_id_shown).first().state
+                if state == 1: # 지각인 경우
+                    statesum = statesum + 1/3
+                elif state in [0,2]: # 출석이나 공결인 경우
+                    pass
+                elif state == 3: # 공결하였으나 회의록 확인을 달지 않은 경우
+                    statesum = statesum + 1/3
+                elif state == 4: # 결석한 경우
+                    statesum = statesum + 1
+                else: # 나머지 state는 모두 결석하였고 회의록 확인을 달지 않은 경우
+                    statesum = statesum + 4/3
+        quarter = models.Quarter.query.filter_by(id=id).first()
+        completion.append([id, quarter.year, quarter.semester, scoresum, quarter.activity_score, round(statesum,1), quarter.conference_absence])
+        scoresum = 0
+        statesum = 0
+
+    completion.sort(key=itemgetter(1,2), reverse=True)
+
+    try:
+        return render_template('memberapp/mms/completion_state.html', member=current_user,
+                notifications=notification.Generate(current_user), nav_id=2, current=Current(), 
+                mem_id_shown=mem_id_shown, correspondmember=correspondmember, scoretable=scoretable, 
+                statetable=statetable, activities=activities, conferences=conferences,
+                completion=completion, quarter_id_list=quarter_id_list, quarters=quarters, 
+                recentyear=recentyear, recentsemester=recentsemester, snotes=note(0), rnotes=note(1),
+                prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+                group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all())
     except TemplateNotFound:
         abort(404)
+
+@member_app.route('/mms/completion_criterion')
+@member_required
+def MoveRecentCompletionCriterion():
+    recentyear = Current().year
+    recentsemester = Current().semester
+
+    return redirect(url_for('.MgmtCompletionCriterion', year=recentyear, semester=recentsemester))
+
+@member_app.route('/mms/completion_criterion/<int:year>/<int:semester>', methods=['GET', 'POST'])
+@member_required
+def MgmtCompletionCriterion(year, semester):
+    quarters = models.Quarter.query.order_by(models.Quarter.year.desc()).order_by(models.Quarter.semester.desc()).all()
+    quarter = models.Quarter.query.filter_by(year=year).filter_by(semester=semester).first()
+
+    if not quarter:
+        return abort(404)
+
+    regularactscore = 0
+
+    for activity in quarter.activities:
+        if activity.type==0:
+            regularactscore = regularactscore + activity.totalscore
+
+    try:
+        return render_template('memberapp/mms/mgmt_completion_criterion.html', member=current_user,
+         notifications=notification.Generate(current_user), nav_id=2, current=Current(),
+         year=year, semester=semester, quarter=quarter, quarters=quarters,
+         regularactscore=regularactscore, snotes=note(0), rnotes=note(1),
+         prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+         group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all())
+    except TemplateNotFound:
+        abort(404)
+
+@member_app.route('/mms/mgmt/completion_record', methods=['GET', 'POST'])
+@member_required
+def MoveToMgmtCompletionRecordFirst():
+    recentyear = Current().year
+    recentsemester = Current().semester
+    return redirect(url_for('.MgmtCompletionRecord', year = recentyear, semester=recentsemester))
+
+@member_app.route('/mms/mgmt/completion_record/<int:year>/<int:semester>', methods=['GET', 'POST'])
+@member_required
+def MgmtCompletionRecord(year, semester):
+    if not current_user.id in Current().page_manager_ids():
+        abort(404)
+
+    recentyear = Current().year
+    recentsemester = Current().semester
+    quarters = models.Quarter.query.order_by(models.Quarter.year.desc()).order_by(models.Quarter.semester.desc()).all()
+
+    quarter = models.Quarter.query.filter_by(year=year).filter_by(semester=semester).first_or_404()
+
+    if not quarter:
+        abort(404)
+
+    actIDset =[]
+    for activity in quarter.activities:
+        actIDset.append(activity.id)
+    confIDset = []
+    for conference in quarter.conferences:
+        confIDset.append(conference.id)
+
+    scoretable = models.Member_Activity.query.filter(models.Member_Activity.activity_id.in_(actIDset)).all()
+    statetable = models.Member_Conference.query.filter(models.Member_Conference.conference_id.in_(confIDset)).all()
+
+    try:
+        return render_template('memberapp/mms/mgmt_completion_record.html', member=current_user, notifications=notification.Generate(current_user), 
+            nav_id=2, current=Current(), quarters=quarters, quarter=quarter, scoretable=scoretable, statetable=statetable, year=year, 
+            recentyear=recentyear, semester=semester, recentsemester=recentsemester, snotes=note(0), rnotes=note(1),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all())
+    except TemplateNotFound:
+        abort(404)
+
+@member_app.route('/mms/mgmt/completion_record/member_addlist')
+@member_required
+def MemberAddList():
+    if not current_user.id in Current().page_manager_ids():
+        abort(404)
+
+    members = models.User.query.filter_by(ismember=1).order_by(models.User.cycle).all()
+
+    return render_template('memberapp/mms/mgmt_memberaddlist.html', members=members, snotes=note(0), rnotes=note(1))
+
+@member_app.route('/mms/mgmt/completion_record/member_activelist')
+@member_required
+def MemberActiveList():
+    if not current_user.id in Current().page_manager_ids():
+        abort(404)
+
+    active_members = Current().active("actives")
+
+    scoresum = 0
+    statesum = 0
+    scoretable = models.Member_Activity
+    statetable = models.Member_Conference
+    completion = []
+
+    recentyear = Current().year
+    recentsemester = Current().semester
+    recentquarter = models.Quarter.query.filter_by(year=recentyear).filter_by(semester=recentsemester).first()
+    recentid = recentquarter.id
+
+    for active_member in active_members:
+        activities = active_member.activities
+        conferences = active_member.conferences
+
+        for activity in activities:
+            if activity.quarter_id == recentid:
+                score = scoretable.query.filter_by(activity_id=activity.id).filter_by(member_id=active_member.id).first().score
+                scoresum = scoresum + score
+        for conference in conferences:
+            if conference.quarter_id == recentid:
+                state = statetable.query.filter_by(conference_id=conference.id).filter_by(member_id=active_member.id).first().state
+                if state == 1: # 지각인 경우
+                    statesum = statesum + 1/3
+                elif state in [0,2]: # 출석이나 공결인 경우
+                    pass
+                elif state == 3: # 공결하였으나 회의록 확인을 달지 않은 경우
+                    statesum = statesum + 1/3
+                elif state == 4: # 결석한 경우
+                    statesum = statesum + 1
+                else: # 나머지 state는 모두 결석하였고 회의록 확인을 달지 않은 경우
+                    statesum = statesum + 4/3
+        completion.append([active_member.deptstem.name, active_member.nickname, active_member.cycle, scoresum, recentquarter.activity_score, round(statesum,1), recentquarter.conference_absence])
+        scoresum = 0
+        statesum = 0
+
+    return render_template('memberapp/mms/mgmt_memberactivelist.html', completion=completion)
 
 @member_app.route('/mms/active', methods=['GET', 'POST'])
 @member_required
 def ActiveApply():
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
     form = ModifyMemberForm()
-    departments = models.Department.query.all()
-    stem_departments = models.StemDepartment.query.filter(or_(models.StemDepartment.id==1, models.StemDepartment.id==3, models.StemDepartment.id==4)).all()
+    
+    departments = models.DeptUniv.query.all()
+    stem_departments = models.DeptStem.query.filter(or_(models.DeptStem.id==1, models.DeptStem.id==3, models.DeptStem.id==4)).all()
 
-    request = models.Activeapply.query.first()
+    request = models.Configuration.query.filter_by(option='active_apply').first().value
+
+    actives = Current().active("actives")
 
     try:
         if form.validate_on_submit():
-            return render_template('memberapp/mms/active_apply.html', member=current_user.member, notifications=notification.Generate(current_user.member), nav_id=2, boards=models.Tag.query.filter_by(special=1).all(), manager=manager, form=form, departments=departments, stem_departments=stem_departments, is_active=request.is_active, message='신청이 완료되었습니다.')
-        return render_template('memberapp/mms/active_apply.html', member=current_user.member, notifications=notification.Generate(current_user.member), nav_id=2, boards=models.Tag.query.filter_by(special=1).all(), manager=manager, form=form, departments=departments, stem_departments=stem_departments, is_active=request.is_active)
+            return render_template('memberapp/mms/active_apply.html', current_user=current_user,
+             notifications=notification.Generate(current_user), nav_id=2, current=Current(),
+             form=form, deptunivs=departments, deptstems=stem_departments,
+             is_active=request, message='신청이 완료되었습니다.',
+             snotes=note(0), rnotes=note(1))
+        return render_template('memberapp/mms/active_apply.html', current_user=current_user,
+             notifications=notification.Generate(current_user), nav_id=2, current=Current(),
+             form=form, deptunivs=departments, deptstems=stem_departments,
+             is_active=request, snotes=note(0), rnotes=note(1), actives=actives)
     except TemplateNotFound:
         abort(404)
 
 @member_app.route('/mms/active/activation', methods=['GET', 'POST'])
 @member_required
 def ActiveActivation():
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    if current_user.member in manager:
+    if current_user.id in Current().page_manager_ids():
         if 'is_active' in request.form:
-            isactive = models.Activeapply.query.all()
-            newval = models.Activeapply(is_active=1)
+            isactive = models.Configuration.query.filter_by(option='active_apply').all()
+            newval = models.Configuration('active_apply', True)
             for i in isactive:
                 db.session.delete(i)
             db.session.add(newval)
             db.session.commit()
         else:
-            isactive = models.Activeapply.query.all()
-            newval = models.Activeapply(is_active=0)
+            isactive = models.Configuration.query.filter_by(option='active_apply').all()
+            newval = models.Configuration('active_apply', False)
             for i in isactive:
                 db.session.delete(i)
             db.session.add(newval)
@@ -123,526 +386,885 @@ def ActiveActivation():
         return redirect(url_for('.ActiveApply'))
     return abort(403)
 
-@member_app.route('/mms/completion_criterion')
-@member_required
-def MgmtCompletionCriterion():
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    if not current_user.member in manager:
-        abort(404)
-
-    try:
-        return render_template('memberapp/mms/mgmt_completion_criterion.html', member=current_user.member, notifications=notification.Generate(current_user.member), nav_id=2, boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-    except TemplateNotFound:
-        abort(404)
-
-@member_app.route('/mms/mgmt/completion_record')
-@member_required
-def MgmtCompletionRecord():
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    if not current_user.member in manager:
-        abort(404)
-
-    try:
-        return render_template('memberapp/mms/mgmt_completion_record.html', member=current_user.member, notifications=notification.Generate(current_user.member), nav_id=2, boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-    except TemplateNotFound:
-        abort(404)
-
 @member_app.route('/mms/mgmt/active_registration', methods=['GET', 'POST'])
 @member_required
 def MgmtActiveRegistration():
 
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
     form = ModifyStemDeptOnly()
 
-    if not current_user.member in manager:
-        abort(404)
+    if not current_user.id in Current().page_manager_ids():
+        abort(403)
 
     try:
         if form.is_submitted():
             if form.memberid.data == -1:
-                users = models.Member.query.filter(or_(models.Member.stem_dept_id==1,models.Member.stem_dept_id==3,models.Member.stem_dept_id==4)).all()
+                users = models.User.query.filter(or_(models.User.deptstem_id==1,models.User.deptstem_id==3,models.User.deptstem_id==4)).all()
                 for user in users :
-                    user.stem_dept_id = form.stem_department.data
+                    user.deptstem_id = form.stem_department.data
                     db.session.add(user)
                 db.session.commit()
             else:
-                user = models.Member.query.filter(models.Member.id == form.memberid.data).first_or_404()
-                user.stem_dept_id = form.stem_department.data
+                user = models.User.query.filter(models.User.id == form.memberid.data).first_or_404()
+                user.deptstem_id = form.stem_department.data
                 db.session.add(user)
                 db.session.commit()
-            return render_template('memberapp/mms/mgmt_registration.html', member=current_user.member, notifications=notification.Generate(current_user.member), nav_id=2, boards=models.Tag.query.filter_by(special=1).all(), form=form, manager=manager)
-        return render_template('memberapp/mms/mgmt_registration.html', member=current_user.member, notifications=notification.Generate(current_user.member), nav_id=2, boards=models.Tag.query.filter_by(special=1).all(), form=form, manager=manager)
+            return render_template('memberapp/mms/mgmt_registration.html', member=current_user, notifications=notification.Generate(current_user), nav_id=2, form=form, current=Current(), 
+                snotes=note(0), rnotes=note(1),
+                prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+                group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all())
+        return render_template('memberapp/mms/mgmt_registration.html', member=current_user, notifications=notification.Generate(current_user), nav_id=2, form=form, current=Current(), 
+                snotes=note(0), rnotes=note(1),
+                prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+                group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all())
     except TemplateNotFound:
         abort(404)
 
 @member_app.route('/people/_<int:cycle>')
 @member_required
 def showPeople(cycle):
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
     try:
         return render_template(
-            'memberapp/people.html', member=current_user.member, nav_id=3,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), cycle=cycle, manager=manager)
+            'memberapp/people.html', member=current_user, nav_id=3,
+            notifications=notification.Generate(current_user),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
+            cycle=cycle, current=Current(), snotes=note(0), rnotes=note(1))
     except TemplateNotFound:
         abort(404)
-
 
 @member_app.route('/people/<int:id>')
 @member_required
 def showMember(id):
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
     try:
-        mem = models.Member.query.get(id)
+        mem = models.User.query.get(id)
         if not mem:
-            abort(404)
+            abort(403)
+
+        comments = models.Member_Comment.query.filter(models.Member_Comment.member_id==mem.id).order_by(models.Member_Comment.timestamp.desc()).all()
+
         return render_template(
-            'memberapp/profile.html', member=current_user.member,
+            'memberapp/profile.html', member=current_user,
             profile_member=mem, nav_id=3, cycle=mem.cycle,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-    except TemplateNotFound:
-        abort(404)
-
-@member_app.route('/people/u_<int:id>')
-@member_required
-def showMemberbyUserID(id):
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    try:
-        mem = models.Member.query.filter_by(user_id=id).first()
-        if not mem:
-            abort(404)
-        memberid = str(mem.id)
-        return redirect('stem/people/' + memberid )
-
+            notifications=notification.Generate(current_user),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
+            current=Current(), comments=comments, snotes=note(0), rnotes=note(1))
     except TemplateNotFound:
         abort(404)
 
 @member_app.route('/calendar')
 @member_required
 def showCalendar():
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
     try:
         return render_template(
-            'calendar.html', member=current_user.member, nav_id=4,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
+            'calendar.html', member=current_user, nav_id=4,
+            notifications=notification.Generate(current_user),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
+            current=Current(), snotes=note(0), rnotes=note(1))
     except TemplateNotFound:
         abort(404)
 
-@member_app.route('/suggestion')
+@member_app.route('/stememo')
 @member_required
-def gotoSuggestionPage1():
-    return redirect(url_for('.showSuggestion', page = 1))
+def gotoSTEMemoPage1():
+    return redirect(url_for('.showSTEMemo', page = 1))
 
-@member_app.route('/suggestion/<int:page>')
+@member_app.route('/stememo/<int:page>')
 @member_required
-def showSuggestion(page):
+def showSTEMemo(page):
 
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
+    if page == 0 :
+        abort(404)
 
-    totalSuggestion = len(models.Task.query.get(0).children[::-1]) - 1
-    end = totalSuggestion - 10 * (page - 1) + 1
-    start = totalSuggestion - 10 * page + 1
-    maxpage = round(totalSuggestion / 10 + 0.5)
+    totalNum = len(models.Memo.query.all())
+    end = totalNum - 10 * (page - 1)
+    start = totalNum - 10 * page
+    maxpage = math.ceil(totalNum / 10)
 
     if start < 1 :
-        start = 1
+        start = 0
     if end < 1 :
         abort(404)
 
-    issues = models.Task.query.get(0).children[start:end:][::-1]
+    memoes = models.Memo.query.all()[start:end:][::-1]
 
     try:
-        mem = models.Member
+        mem = models.User
         return render_template(
-            'suggestion.html',
-            member=current_user.member, nav_id=5,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), mem=mem, manager=manager, issues=issues, maxpage = maxpage, page=page, totalSuggestion=totalSuggestion)
+            'memo.html',
+            current_user=current_user, nav_id=5,
+            notifications=notification.Generate(current_user),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(), 
+            memoes=memoes, maxpage = maxpage, page=page, totalNum=totalNum, current=Current(),
+            snotes=note(0), rnotes=note(1))
     except TemplateNotFound:
         abort(404)
-
-@member_app.route('/task/<int:id>')
-@member_required
-def showTask(id):
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    try:
-        task = models.Task.query.get(id)
-        if not task:
-            abort(404)
-        if task.level == 0:
-            return render_template(
-                'milestone.html', member=current_user.member,
-                milestone=task, task=task, nav_id=5,
-                notifications=notification.Generate(current_user.member),
-                boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-        if task.level == 1:
-            return render_template(
-                'issue.html', member=current_user.member,
-                issue=task, task=task, nav_id=6,
-                notifications=notification.Generate(current_user.member),
-                boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-        if task.level == 2:
-            return render_template(
-                'subtask.html', member=current_user.member,
-                task=task, nav_id=6,
-                notifications=notification.Generate(current_user.member),
-                boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-    except TemplateNotFound:
-        abort(404)
-
-
-@member_app.route('/milestone/<int:id>')
-@member_required
-def showMilestone(id):
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    try:
-        milestone = models.Task.query.get(id)
-        if milestone and milestone.level == 0:
-            return render_template(
-                'milestone.html',
-                member=current_user.member,
-                milestone=milestone, task=milestone, nav_id=5,
-                notifications=notification.Generate(current_user.member),
-                boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-        else:
-            abort(404)
-    except TemplateNotFound:
-        abort(404)
-
-
-@member_app.route('/issue/<int:id>')
-@member_required
-def showIssue(id):
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    try:
-        issue = models.Task.query.get(id)
-        if issue and issue.level == 1:
-            return render_template(
-                'issue.html', member=current_user.member,
-                issue=issue, task=issue, nav_id=6,
-                notifications=notification.Generate(current_user.member),
-                boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-        else:
-            abort(404)
-    except TemplateNotFound:
-            abort(404)
-
-
-@member_app.route('/subtask/<int:id>')
-@member_required
-def showSubtask(id):
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    try:
-        task = models.Task.query.get(id)
-        if task and task.level == 2:
-            return render_template(
-                'subtask.html', member=current_user.member,
-                task=task, nav_id=6,
-                notifications=notification.Generate(current_user.member),
-                boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-        else:
-            abort(404)
-    except TemplateNotFound:
-            abort(404)
-
-"""
-@member_app.route('/issue')
-@member_required
-def showIssues():
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    try:
-        issues = models.Task.query.filter_by(level=1).all()
-        return render_template(
-            'issue_list.html', member=current_user.member,
-            issues=issues, nav_id=5,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-    except TemplateNotFound:
-        abort(404)
-
-
-@member_app.route('/milestone')
-@member_required
-def showMilestones():
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    try:
-        milestones = models.Task.query.filter_by(level=0).all()
-        return render_template('milestone_list.html',
-                                member=current_user.member,
-                                milestones=milestones, nav_id=4,
-                                notifications=notification.Generate(
-                                   current_user.member),
-                                boards=models.Tag.query
-                                    .filter_by(special=1).all(), manager=manager)
-    except TemplateNotFound:
-        abort(404)
-
-
-@member_app.route('/tag')
-@member_required
-def showTagList():
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    try:
-        tags = models.Tag.query.all()
-        return render_template(
-            'tag_list.html', member=current_user.member, nav_id=7, tags=tags,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-    except TemplateNotFound:
-        abort(404)
-
-
-@member_app.route('/tag/<int:id>')
-@member_required
-def showTag(id):
-    try:
-        tag = models.Tag.query.get(id)
-        if not tag:
-            abort(404)
-
-        return render_template(
-            'tag.html', member=current_user.member, nav_id=7, tag=tag,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-    except TemplateNotFound:
-        abort(404)
-"""
 
 @member_app.route('/board')
 @member_required
 def showBoardList():
+    try:
+        if request.args.get('gid'):
+            gid = request.args.get('gid')
+            bgroups = models.Bgroup.query.filter_by(id=gid).first()
+        else:
+            bgroups = models.Bgroup.query.all()
+        return render_template(
+            'post_group.html',
+            current_user=current_user, nav_id=6, bgroups=bgroups,
+            notifications=notification.Generate(current_user),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
+            current=Current(), snotes=note(0), rnotes=note(1))
+    except TemplateNotFound:
+        abort(404)
 
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
+@member_app.route('/board/personal/<int:member_id>')
+@member_required
+def showPersonalBoard(member_id):
+    board = models.BoardMember.query.filter_by(group_id=10).filter_by(owner_id=member_id).first()
+    if board:
+        return redirect(url_for('.gotoBoardPage1', boardmember_id=board.id))
+    else:
+        abort(404)
+
+@member_app.route('/board/recent/<int:postmember_id>')
+@member_required
+def RecentPost(postmember_id):
+    rboardRec=models.PostMember.query.order_by(models.PostMember.timestamp.desc()).limit(10).all()
+    currentPost=models.PostMember.query.filter_by(id=postmember_id).first_or_404()
+
+    if currentPost in rboardRec:
+        return redirect(url_for('.showPost', boardmember_id=currentPost.boardmember_id, postmember_id=postmember_id))
+    else:
+        abort(404)
+
+@member_app.route('/board/<int:boardmember_id>')
+@member_required
+def gotoBoardPage1(boardmember_id):
+    return redirect(url_for('.showPage', boardmember_id=boardmember_id, page = 1))
+
+@member_app.route('/board/<int:boardmember_id>/_<int:page>', methods=['GET', 'POST'])
+@member_required
+def showPage(boardmember_id,page):
+    if page == 0 :
+        abort(404)
 
     try:
-        tags = models.Tag.query.filter_by(special=1).all()
+
+        preference = current_user.preferred_boards
+        preferred_boards = []
+        for b in preference:
+            preferred_boards.append(b.id)
+
+        board = models.BoardMember.query.get(boardmember_id)
+
+        if not board:
+            abort(404)
+
+        if request.args.get('search'):
+            post_search = []
+            if request.args.get('searchtype')=='0':
+                for post in board.posts:
+                    if request.args.get('search') in post.title:
+                        post_search.append(post)
+            if request.args.get('searchtype')=='1':
+                for post in board.posts:
+                    if request.args.get('search') in post.memberwriter.nickname:
+                        post_search.append(post)
+            if request.args.get('searchtype')=='2':
+                for post in board.posts:
+                    if request.args.get('search') in post.body:
+                        post_search.append(post)
+            postlist = post_search
+        else:
+            postlist = board.posts.all()
+
+        totalpost = len(postlist)
+        if totalpost == 0 :
+            if page != 1:
+                abort(404)
+            end = 0
+            start = 0
+        else :
+            end = totalpost - 10 * (page - 1)
+            start = totalpost - 10 * page
+            if start < 1 :
+                start = 0
+            if end < 1 :
+                abort(404)
+
+        maxpage = math.ceil(totalpost / 10)
+
+        posts = postlist[start:end:]
+
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('board_title', type=str, default='')
+        postParser.add_argument('owner_id', type=str, default='')
+        postParser.add_argument('owner_name', type=str, default='')
+        args= postParser.parse_args()
+
+        if args['board_title'] is not '':
+            board.title = args['board_title']
+            db.session.add(board)
+            db.session.commit()
+        elif args['owner_id'] is not '' and args['owner_name'] is not '':
+            new_owner = models.User.query.filter_by(username=args['owner_id']).first()
+            if new_owner is None:
+                flash('주어진 정보에 일치하는 회원이 없습니다.')
+
+            elif board.group_id == 10: #boardgroup 10 = '개인게시판'
+                flash('개인게시판은 게시판 주를 변경할 수 없습니다.')
+
+            elif new_owner.nickname != args['owner_name']:
+                flash('주어진 정보에 일치하는 회원이 없습니다.')
+
+            elif not new_owner.ismember:
+                flash('해당 회원은 게시판 주가 될 수 없습니다.')
+
+            else:
+                board.owner = new_owner
+                db.session.add(board)
+                db.session.commit()
+
         return render_template(
-            'board_list.html',
-            member=current_user.member, nav_id=6, tags=tags,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
+            'post_list.html', member=current_user, nav_id=6,
+            board=board, posts=posts, maxpage = maxpage, page=page,
+            totalpost=totalpost,
+            notifications=notification.Generate(current_user),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
+            current=Current(), snotes=note(0), rnotes=note(1), preferred_boards=preferred_boards)
+
     except TemplateNotFound:
         abort(404)
 
 
-@member_app.route('/board/<int:tag_id>')
+@member_app.route('/board/<int:boardmember_id>/<int:postmember_id>')
 @member_required
-def showBoard(tag_id):
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
+def showPost(boardmember_id, postmember_id):
     try:
-        tag = models.Tag.query.get(tag_id)
-        
-        if not tag:
+        board = models.BoardMember.query.get(boardmember_id)
+        post = models.PostMember.query.get(postmember_id)
+        comments = models.CommentMember.query.filter_by(postmember_id=postmember_id).order_by(models.CommentMember.timestamp).all()
+
+        post_up = None
+        post_down = None
+
+        if not post in board.posts:
             abort(404)
 
-        posts = tag.posts
-
-        return render_template(
-            'post_list.html', member=current_user.member, nav_id=6,
-            tag=tag, posts=posts,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-    except TemplateNotFound:
-        abort(404)
-
-@member_app.route('/board/<int:tag_id>_<int:page>')
-@member_required
-def showPage(tag_id,page):
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    try:
-        tag = models.Tag.query.get(tag_id)
-        if not tag:
+        if not (board and post):
             abort(404)
 
-        pagination = tag.posts.query.filter(3)
+        totalpost = len(board.posts[::-1])
+        page = 1
+        for s in range(totalpost):
+            if post == board.posts[s]:
+                if totalpost == 1:
+                    pass
+                elif s == totalpost - 1:
+                    post_down = board.posts[s-1]
+                elif s == 0:
+                    post_up = board.posts[s+1]
+                else:
+                    post_up = board.posts[s+1]
+                    post_down = board.posts[s-1]
 
-        return render_template(
-            'post_list.html', member=current_user.member, nav_id=6,
-            tag=tag, posts=posts,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
-    except TemplateNotFound:
-        abort(404)
+        while True:
+            end = totalpost - 10 * (page - 1)
+            start = totalpost - 10 * page
 
+            if start < 1 :
+                start = 0
+            if end < 1 :
+                end = 0
 
-@member_app.route('/board/<int:tag_id>/<int:post_id>')
-@member_required
-def showPost(tag_id, post_id):
+            posts=board.posts[start:end:]
 
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
-    try:
-        tag = models.Tag.query.get(tag_id)
-        post = models.Post.query.get(post_id)
-
-        if not post in tag.posts:
-            abort(404)
-
-        if not (tag and post):
-            abort(404)
+            if post in posts :
+                break
+            else :
+                page = page + 1
 
         post.hitCount = post.hitCount + 1
+
+        # if models.Conference.query.filter_by(record_id=post.id).first():
+        #     conf = models.Conference.query.filter_by(record_id=post.id).first()
+            
+        #     statetable = models.Member_Conference.query.filter_by(conference_id=conf.id)
+
+        #     chulsuks = statetable.filter_by(state=0).all()
+        #     bubunchams = statetable.filter_by(state=1).all() 
+        #     gonggyuls = statetable.filter(or_(models.Member_Conference.state==2, models.Member_Conference.state==3)).all()
+        #     gyulsuks = statetable.filter(or_(models.Member_Conference.state==4, models.Member_Conference.state==5)).all()
+        # else :
+        #     chulsuks = None
+        #     bubunchams = None
+        #     gonggyuls = None
+        #     gyulsuks = None
+
         db.session.commit()
 
         return render_template(
-            'post_view.html', member=current_user.member, nav_id=6,
-            tag=tag, post=post,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
+            'post_view.html', member=current_user, nav_id=6,
+            board=board, post=post, page = page,
+            notifications=notification.Generate(current_user),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
+            current=Current(), post_up=post_up, post_down=post_down, comments=comments, snotes=note(0), rnotes=note(1))
     except TemplateNotFound:
         abort(404)
 
-@member_app.route('/board/<int:tag_id>/<int:post_id>/modify')
+@member_app.route('/board/<int:boardmember_id>/<int:postmember_id>/modify')
 @member_required
-def modifyPost(tag_id, post_id):
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
+def modifyPost(boardmember_id, postmember_id):
     try:
-        tag = models.Tag.query.get(tag_id)
-        post = models.Post.query.get(post_id)
+        board = models.BoardMember.query.get(boardmember_id)
+        post = models.PostMember.query.get(postmember_id)
 
-        if not (tag and post):
+        if not post in board.posts:
             abort(404)
-        if post.author != current_user:
+        if not (board and post):
+            abort(404)
+        if post.memberwriter != current_user:
             abort(403)
 
         return render_template(
-            'post_modify.html', member=current_user.member, nav_id=6,
-            tag=tag, post=post,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
+            'post_modify.html', member=current_user, nav_id=6,
+            board=board, post=post,
+            notifications=notification.Generate(current_user),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
+            current=Current(), snotes=note(0), rnotes=note(1))
     except TemplateNotFound:
         abort(404)
 
-@member_app.route('/board/<int:tag_id>/<int:post_id>/delete')
+@member_app.route('/board/<int:boardmember_id>/<int:postmember_id>/delete')
 @member_required
-def deletePost(tag_id, post_id):
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
+def deletePost(boardmember_id, postmember_id):
     try:
-        tag = models.Tag.query.get(tag_id)
-        post = models.Post.query.get(post_id)
-        if not (tag and post):
+        board = models.BoardMember.query.get(boardmember_id)
+        post = models.PostMember.query.get(postmember_id)
+
+        if not post in board.posts:
             abort(404)
-        if post.author != current_user:
+        if not (board and post):
+            abort(404)
+        if (post.memberwriter != current_user) and (board.owner != current_user):
             abort(403)
 
         db.session.delete(post)
+
         db.session.commit()
 
-        return redirect(url_for('.showBoard', tag_id=tag_id))
+        return redirect(url_for('.gotoBoardPage1', boardmember_id=boardmember_id))
     except TemplateNotFound:
         abort(404)
 
-@member_app.route('/board/<int:tag_id>/write')
+@member_app.route('/board/<int:boardmember_id>/write')
 @member_required
-def writePost(tag_id):
-
-    recruitcycle = db.session.query(func.max(models.Member.cycle).label("cycle")).first().cycle
-    manager = models.Member.query.filter(or_(models.Member.cycle==recruitcycle, models.Member.cycle==recruitcycle-1)).filter(or_(models.Member.stem_dept_id==5,models.Member.stem_dept_id==6)).all()
-
+def writePost(boardmember_id):
     try:
-        tag = models.Tag.query.get(tag_id)
-        if not tag:
+        board = models.BoardMember.query.get(boardmember_id)
+        if not board:
             abort(404)
-        if not tag.special==1:
-            abort(404)
+
+        # if boardmember_id >= 3 and boardmember_id <=7 :
+        #     recentyear = db.session.query(func.max(models.Quarter.year).label("recentyear")).first().recentyear
+        #     recentsemester = db.session.query(func.max(models.Quarter.semester).label("recentsemester")).filter_by(year=recentyear).first().recentsemester
+        #     current_quarter = models.Quarter.query.filter_by(year=recentyear).filter_by(semester=recentsemester).first()
+        #     current_date = datetime.now().strftime('%Y-%m-%d')
+
+        #     attendants = []
+
+        #     for man in manager:
+        #         if man.cycle == recruitcycle:
+        #             attendants.append(man)
+
+        #     if len(attendants) == 0:
+        #         for man in manager:
+        #             if man.cycle == recruitcycle-1:
+        #                 attendants.append(man)
+
+        #     actives = models.User.query.filter(or_(models.User.deptstem_id==1,models.User.deptstem_id==3,models.User.deptstem_id==4)).order_by(models.User.deptstem_id).all()
+
+        #     for active in actives:
+        #         attendants.append(active)
+
+        #     buseos = []
+        #     if boardmember_id == 4: # 대외교류부 부서회의
+        #         actives = models.User.query.filter_by(deptstem_id=3).all()
+        #         for active in actives:
+        #             buseos.append(active)
+        #     elif boardmember_id == 5: # 봉사부 부서회의
+        #         actives = models.User.query.filter_by(deptstem_id=1).all()
+        #         for active in actives:
+        #             buseos.append(active)
+        #     elif boardmember_id == 6: # 학술부 부서회의
+        #         actives = models.User.query.filter_by(deptstem_id=4).all()
+        #         for active in actives:
+        #             buseos.append(active)
+        #     else:
+        #         buseos = attendants
+
+        #     return render_template('post_write.html',
+        #     member=current_user, nav_id=6, board=board,
+        #     notifications=notification.Generate(current_user),
+        #     current=Current(), snotes=note(0), rnotes=note(1), quarter=current_quarter, date=current_date, attendants = attendants, buseos=buseos)
 
         return render_template(
             'post_write.html',
-            member=current_user.member, nav_id=6, tag=tag,
-            notifications=notification.Generate(current_user.member),
-            boards=models.Tag.query.filter_by(special=1).all(), manager=manager)
+            member=current_user, nav_id=6, board=board,
+            notifications=notification.Generate(current_user),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
+            current=Current(), snotes=note(0), rnotes=note(1))
 
     except TemplateNotFound:
         abort(404)
 
+@member_app.route('/record/write')
+@member_required
+def writeRecordList():
+    current=Current()
+
+    if not current_user in current.active("actives"):
+        abort(403)
+
+    limit = datetime.now() - timedelta(days=7)
+    writableRecords = models.Record.query.filter_by(writer_id=current_user.id). \
+                       filter(models.Record.confday >= limit).all()
+
+    return render_template('record/record_writable.html',
+        member=current_user, nav_id=7, current=current, notifications=notification.Generate(current_user), snotes=note(0), rnotes=note(1),
+        prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+        group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(), records=writableRecords)
+
+@member_app.route('/record/write/<int:record_id>')
+@member_required
+def writeRecord(record_id):
+    record = models.Record.query.get(record_id)
+
+    if not record:
+        abort(404)
+
+    current=Current()
+
+    actives=current.active('actives')
+
+    conf_id = 0
+    if record.conftype == 0:
+        conf_id = models.Conference.query.filter_by(record_id=record.id).first().id
+
+    if record.conftype == 2:
+        buseo = models.User.query.filter_by(ismember=1).filter_by(deptstem_id=3).all()
+    elif record.conftype == 3:
+        buseo = models.User.query.filter_by(ismember=1).filter_by(deptstem_id=1).all()
+    elif record.conftype == 4:
+        buseo = models.User.query.filter_by(ismember=1).filter_by(deptstem_id=4).all()
+    else:
+        buseo = []
+
+    if record.body is not None:
+        body = record.body.split('<!-- EndOfAttend -->')
+        if len(body) <= 1:
+            body = ''
+            att_0 = ['']
+            att_1 = ['']
+            att_2 = ['']
+            att_4 = ['']
+        else:
+            attendance = body[0].split('</p><p style="display:none;" class="forid">')
+            att_0 = attendance[1].strip().split(' ')
+            att_1 = attendance[2].strip().split(' ')
+            att_2 = attendance[3].strip().split(' ')
+            att_4 = attendance[4].strip().rstrip('</p> ').split(' ')
+
+            body.pop(0)
+            body="".join(body)
+    else:
+        body = ''
+        att_0 = ['']
+        att_1 = ['']
+        att_2 = ['']
+        att_4 = ['']
+
+    if (not current_user in current.active("actives")) or (current_user.id != record.writer_id):
+        abort(403)
+
+    limit = datetime.now() - timedelta(days=7)
+    if not record.confday >= limit:
+        abort(403)
+
+    return render_template(
+            'record/record_write.html', member=current_user, nav_id=7, conf_id=conf_id,
+            record=record, actives=actives, buseo=buseo, body=body, att_0 = att_0, att_1=att_1,
+            att_2=att_2, att_4=att_4, notifications=notification.Generate(current_user),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
+            current=current, snotes=note(0), rnotes=note(1))
+
+@member_app.route('/record', methods=['GET','POST'])
+@member_required
+def listRecord():
+    recordParser = reqparse.RequestParser()
+    recordParser.add_argument('conftypes', type=str)
+    recordParser.add_argument('confstart', type=str)
+    recordParser.add_argument('confplace', type=str)
+    recordParser.add_argument('confend', type=str)
+    recordParser.add_argument('conftitle', type=str)
+    recordParser.add_argument('page', type=int)
+
+    args = recordParser.parse_args()
+
+    conftypes = args['conftypes']
+    if (conftypes == '') or (conftypes is None):
+        conftypes = [0, 1, 2, 3, 4, 5]
+    else:
+        conftypes = conftypes.strip().split(" ")
+        conftypes = list(map(int, conftypes))
+
+    confstart = args['confstart']
+    if (confstart == '') or (confstart is None):
+        confstart = datetime.strptime('2010-07-14', '%Y-%m-%d')
+    else:
+        confstart = datetime.strptime(confstart, '%Y-%m-%d')
+
+    confend = args['confend']
+    if (confend == '') or (confend is None):
+        confend = datetime.now()
+    else:
+        confend = datetime.strptime(confend, '%Y-%m-%d')
+
+    if confstart > confend:
+        confstart, confend = confend, confstart
+
+    confplace = args['confplace']
+    if (confplace == '') or (confplace is None):
+        confplace = "%"
+    else:
+        confplace = "%" + confplace + "%"
+
+    conftitle = args['conftitle']
+    if (conftitle == '') or (conftitle is None):
+        conftitle = "%"
+    else:
+        conftitle = "%" + conftitle + "%"
+
+    page = args['page']
+    if page is None:
+        page = 1
+
+    records = models.Record.query.filter(models.Record.conftype.in_(conftypes)). \
+               filter(models.Record.confday >= confstart). \
+               filter(models.Record.confday <= confend). \
+               filter(models.Record.confplace.like(confplace)). \
+               filter(models.Record.title.like(conftitle)).order_by(models.Record.confday).all()
+
+    if page == 0 :
+        abort(404)
+
+    totalNum = len(records)
+    end = totalNum - 10 * (page - 1)
+    start = totalNum - 10 * page
+    maxpage = math.ceil(totalNum / 10)
+
+    if start < 1 :
+        start = 0
+    if end < 1 :
+        end = 0
+
+    records = records[start:end:][::-1]
+
+    confstart = confstart.strftime('%Y-%m-%d')
+    confend = confend.strftime('%Y-%m-%d')
+    conftitle = conftitle.strip("%")
+    confplace = confplace.strip("%")
+
+    return render_template('record/record_list.html',
+        member=current_user, nav_id=7, current=Current(), records=records, page=page, maxpage=maxpage,
+        notifications=notification.Generate(current_user), 
+        prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+        group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(), snotes=note(0), rnotes=note(1),
+        conftypes=conftypes, confstart=confstart, confend=confend, confplace=confplace, conftitle=conftitle)
+
+@member_app.route('/record/view/<int:record_id>')
+@member_required
+def viewRecord(record_id):
+    record = models.Record.query.get(record_id)
+    comments = models.CommentRecord.query.filter_by(record_id=record_id).order_by(models.CommentRecord.timestamp).all()
+
+    if not record:
+        abort(404)
+
+    record.hitCount += 1
+
+    db.session.commit()
+
+    return render_template(
+        'record/record_view.html', member=current_user, nav_id=7, record=record, comments=comments,
+            notifications=notification.Generate(current_user), snotes=note(0), rnotes=note(1),
+            prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+            group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(), current=Current())
+
+@member_app.route('/record/make', methods=['GET', 'POST'])
+@member_required
+def makeRecord():
+    current=Current()
+
+    if not current_user in current.active("actives"):
+        abort(403)
+
+    quarter=current.quarter.id
+    day=datetime.now().strftime('%Y-%m-%d')
+
+    return render_template('record/record_make.html',
+        member=current_user, nav_id=7, current=current, quarter=quarter, confday=day,
+        notifications=notification.Generate(current_user), snotes=note(0), rnotes=note(1),
+        prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+        group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all())
+
+class AutoRecordTitle(Resource):
+    @member_required
+    def post(self):
+        current=Current()
+        year=current.year
+        semester=current.semester
+
+        if semester == 1:
+            start = str(year)+'-03-01'
+            start = datetime.strptime(start,'%Y-%m-%d')
+
+        elif semester == 2:
+            start = str(year)+'-07-01'
+            start = datetime.strptime(start,'%Y-%m-%d')
+
+        elif semester == 3:
+            start = str(year)+'-09-01'
+            start = datetime.strptime(start,'%Y-%m-%d')
+
+        elif semester == 4:
+            year += 1
+            start = str(year)+'-01-01'
+            start = datetime.strptime(start,'%Y-%m-%d')
+
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('conftype', type=int)
+
+        args = postParser.parse_args()
+        conftype = args['conftype']
+
+        num = models.Record.query.filter(and_(models.Record.conftype==conftype,
+               models.Record.confday >= start, models.Record.confday <= datetime.now())).options(load_only('id')).count()
+
+
+        if conftype == 0 :
+            ret = "제 " + str(num+1) + "차 정기회의"
+            return ret, 200
+        elif conftype == 1 :
+            ret = "제 " + str(num+1) + "차 임원회의"
+            return ret, 200
+        elif conftype == 2 :
+            ret = "제 " + str(num+1) + "차 대외교류부 부서회의"
+            return ret, 200
+        elif conftype == 3 :
+            ret = "제 " + str(num+1) + "차 봉사부 부서회의"
+            return ret, 200
+        elif conftype == 4 :
+            ret = "제 " + str(num+1) + "차 학술부 부서회의"
+            return ret, 200
+        else :
+            ret = "기타 회의"
+            return ret, 200
+api.add_resource(AutoRecordTitle, '/api/record/autotitle')
+
+class NewRecord(Resource):
+    @member_required
+    def post(self):
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('conftype', type=int)
+        postParser.add_argument('confday', type=str)
+        postParser.add_argument('confplace', type=str)
+        postParser.add_argument('conftitle', type=str)
+
+        args = postParser.parse_args()
+        conftype = args['conftype']
+        confday = args['confday']
+        confplace = args['confplace']
+        conftitle = args['conftitle']
+
+        if not ((conftype in range(6)) and confday and confplace and conftitle):
+            return "Fail", 404
+
+        if conftype == 0:
+            title = '(정기회의) ' + confday +' '+ conftitle
+        elif conftype == 1:
+            title = '(임원회의) ' + confday +' '+ conftitle
+        elif conftype == 2:
+            title = '(대외교류부 부서회의) ' + confday +' '+ conftitle
+        elif conftype == 3:
+            title = '(봉사부 부서회의) ' + confday +' '+ conftitle
+        elif conftype == 4:
+            title = '(학술부 부서회의) ' + confday +' '+ conftitle
+        else:
+            title = '(기타) ' + confday + ' ' + conftitle
+
+        if conftype == 0:
+            newrec = models.Record(conftype, datetime.strptime(confday,'%Y-%m-%d'), confplace, title, None, current_user)
+            newconf = models.Conference(conftitle, Current().quarter, newrec)
+            db.session.add(newconf)
+            db.session.add(newrec)
+            db.session.commit()
+            return newrec.id, 200
+        else:
+            newrec = models.Record(conftype, datetime.strptime(confday,'%Y-%m-%d'), confplace, title, None, current_user)
+            db.session.add(newrec)
+            db.session.commit()
+            return newrec.id, 200
+api.add_resource(NewRecord, '/api/record/new')
+
+
+class NewQuarter(Resource):
+    @member_required
+    def post(self):
+        if not current_user.id in Current().page_manager_ids():
+            return abort(403)
+        recentyear = Current().year
+        recentsemester = Current().semester
+
+        newyear = recentyear
+        newsemester = recentsemester
+
+        if recentsemester == 4 :
+            newyear = newyear + 1
+            newsemester = 1
+        else :
+            newyear = newyear
+            newsemester = recentsemester + 1
+
+        if newsemester == 1 :
+            description = str(newyear) + '년 봄분기('+str(newyear)+'.3월 ~ 6월)'
+        elif newsemester == 2 :
+            description = str(newyear) + '년 여름분기('+str(newyear)+'.7월 ~ 8월)'
+        elif newsemester == 3 :
+            description = str(newyear) + '년 가을분기('+str(newyear)+'.9월 ~ 12월)'
+        elif newsemester == 4 :
+            description = str(newyear) + '년 겨울분기('+str(newyear+1)+'.1월 ~ 2월)'
+
+        quarter = models.Quarter(newyear, newsemester)
+        quarter.description = description
+        db.session.add(quarter)
+        db.session.commit()
+        return "Success", 200
+api.add_resource(NewQuarter, '/api/quarter/new')
+
+class ModifyQuarter(Resource):
+    @member_required
+    def post(self,id):
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('activity_score', type=int)
+        postParser.add_argument('conference_absence', type=int)
+
+        args = postParser.parse_args()
+
+        if not current_user.id in Current().page_manager_ids():
+            return abort(403)
+
+        quarter = models.Quarter.query.get(id)
+        quarter.activity_score = args['activity_score']
+        quarter.conference_absence= args['conference_absence']
+        db.session.add(quarter)
+        db.session.commit()
+        return "Success", 200
+api.add_resource(ModifyQuarter, '/api/quarter/<int:id>/modify')
+
+class BoardMember(Resource):
+    @member_required
+    def post(self):
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('board_title', type=str)
+        postParser.add_argument('gid', type=int)
+        postParser.add_argument('special', type=int)
+        args= postParser.parse_args()
+
+        board = models.BoardMember()
+        board.title = args['board_title']
+        board.special = args['special']
+        board.owner_id = current_user.id
+        board.group_id = args['gid']
+
+        db.session.add(board)
+        db.session.commit()
+        return "Success", 200
+
+    @member_required
+    def delete(self):
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('boardmember_id', type=int)
+        postParser.add_argument('postmember_id', type=int)
+        args = postParser.parse_args()
+
+        board = models.BoardMember.query.filter_by(id=args['boardmember_id']).first()
+        post = models.Post.query.filter_by(id=args['postmember_id']).first()
+        if not board or not post:
+            abort(404)
+        if board.special == 0:
+            post.boards.remove(board)
+        db.session.add(post)
+        db.session.commit()
+        return "Success", 200
+api.add_resource(BoardMember, '/api/board')
+
+class WriteRecord(Resource):
+    postParser = reqparse.RequestParser()
+    postParser.add_argument('body', type=str)
+
+    @member_required
+    def put(self, record_id):
+        current=Current()
+        args = self.postParser.parse_args()
+        record = models.Record.query.get(record_id)
+        if not record:
+            abort(404)
+
+        if (not current_user in current.active("actives")) or (current_user.id != record.writer_id):
+            abort(403)
+
+        record.body = args['body']
+
+        files = request.files.getlist("files")
+
+        file_uploaded = False
+
+        for file in files:
+            if helper.process_file(file, record):
+                file_uploaded = True
+
+        db.session.commit()
+
+        return "Success", 200
+api.add_resource(WriteRecord, '/api/record/write/<int:record_id>')
 
 class Post(Resource):
     postParser = reqparse.RequestParser()
     postParser.add_argument('title', type=str, required=True,
                                help='Title is required')
     postParser.add_argument('body', type=str, default='')
-    postParser.add_argument('tag_id', type=int, default=-1)
+    postParser.add_argument('boardmember_id', type=int, default=0)
     postParser.add_argument('redirect', type=str, default='')
 
     @member_required
     def post(self):
         args = self.postParser.parse_args()
-        tag = models.Tag.query.get(args['tag_id'])
-        if not tag:
-            abort(404)
-        post = models.Post(0, args['title'], args['body'],
-                            current_user.id)
+        board = models.BoardMember.query.get(args['boardmember_id'])
+        if not board:
+            return None, 404
+        post = models.PostMember(args['title'], args['body'],
+                        current_user, board)
         db.session.add(post)
-
-        tags = helper.get_tags(post.body)
-        post.tags.append(tag)
-
-        for tag in tags:
-            tag_data = models.Tag.query.filter_by(title=tag).first()
-            if tag_data:
-                post.tags.append(tag_data)
-            else:
-                tag_data = models.Tag(tag)
-                post.tags.append(tag_data)
-                db.session.add(tag_data)
 
         files = request.files.getlist("files")
 
@@ -653,35 +1275,19 @@ class Post(Resource):
                 file_uploaded = True
 
         db.session.commit()
-        if (args['redirect']):
-            notification.Push(current_user.member, models.Member.query.all(),
-                            post, models.NotificationAction.create)
-            return redirect(args['redirect'])
-
-        notification.Push(current_user.member, models.Member.query.all(),
-                        post, models.NotificationAction.create)
         return str(post)
 
     @member_required
-    def put(self, post_id):
+    def put(self, id):
         args = self.postParser.parse_args()
-        tag = models.Tag.query.get(args['tag_id'])
-        post = models.Post.query.get(post_id)
-        if not (tag and post):
+        board = models.BoardMember.query.get(args['boardmember_id'])
+        post = models.PostMember.query.get(id)
+        if not (board and post):
             abort(404)
 
-        tags = helper.get_tags(post.body)
         post.title = args['title']
         post.body = args['body']
 
-        for tag in tags:
-            tag_data = models.Tag.query.filter_by(title=tag).first()
-            if not tag_data:
-                tag_data = models.Tag(tag)
-                db.session.add(tag_data)
-            if not tag_data in post.tags:
-                post.tags.append(tag_data)
-
         files = request.files.getlist("files")
 
         file_uploaded = False
@@ -691,355 +1297,33 @@ class Post(Resource):
                 file_uploaded = True
 
         db.session.commit()
-        notification.Push(current_user.member, models.Member.query.all(),
-                        post, models.NotificationAction.update)
-        if (args['redirect']):
-            return redirect(args['redirect'])
 
         return str(post)
 
     @member_required
-    def get(self, post_id):
-        post = models.Post.query.get(post_id)
+    def get(self, id):
+        post = models.PostMember.query.get(id)
         if post:
             return str(post)
         return {}
+api.add_resource(Post,'/api/post', '/api/post/<int:id>')
 
+class AddMemo(Resource):
 
-api.add_resource(Post, '/api/post',
-                 '/api/post/<int:post_id>')
-
-
-simple_task_fields = {
-    'id': fields.Integer,
-    'local_id': fields.Integer,
-    'level': fields.Integer,
-    'status': fields.Integer,
-    'priority': fields.Integer,
-    'progress': fields.Float,
-    'name': fields.String,
-    'description': fields.String,
-    'deadline': fields.DateTime,
-    'timestamp': fields.DateTime
-}
-
-
-class Task(Resource):
     taskParser = reqparse.RequestParser()
-    taskParser.add_argument('name', type=str, required=True,
-                            help='Name is required')
-    taskParser.add_argument('description', type=str, default='')
-    taskParser.add_argument('level', type=int, default=1)
-    taskParser.add_argument('priority', type=int, default=1)
-    taskParser.add_argument('status', type=int, default=0)
-    taskParser.add_argument('contributor_auto', type=bool, default=False)
-    taskParser.add_argument('deadline', type=int, default=0)
-    taskParser.add_argument('parents[]', type=int, default=[],
-                            action='append', dest='parents')
-    taskParser.add_argument('children[]', type=int, default=[],
-                            action='append', dest='children')
-    taskParser.add_argument('contributors[]', type=int, default=[],
-                            action='append', dest='contributors')
+    taskParser.add_argument('title', type=str)
+    taskParser.add_argument('body', type=str)
 
     @member_required
-    @marshal_with(simple_task_fields)
     def post(self):
         args = self.taskParser.parse_args()
-        args['parents'] = list(set(args['parents']))
-        args['children'] = list(set(args['children']))
-        args['contributors'] = \
-            list(set(args['contributors']) - {current_user.member.id})
-        parent = None
-
-        if len(args['parents']) > 0:
-            parent = models.Task.query.get(args['parents'][0])
-
-        deadline = datetime.fromtimestamp(args['deadline'])
-        task = models.Task(args['level'], args['name'], args['description'],
-                           current_user.member, args['priority'], False,
-                           deadline, parent, None, args['status'])
-
-        comment_text = '%r<br>' % task
-
-        db.session.add(task)
+        memo = models.Memo(args['title'],args['body'],current_user)
+        db.session.add(memo)
         db.session.commit()
+        return "Success", 200
+api.add_resource(AddMemo, '/api/memo/add')
 
-        tags = helper.get_tags(task.description)
-
-        for tag in tags:
-            tag_data = models.Tag.query.filter_by(title=tag).first()
-            if tag_data:
-                task.tags.append(tag_data)
-            else:
-                tag_data = models.Tag(tag)
-                task.tags.append(tag_data)
-                db.session.add(tag_data)
-'''
-        priority_text = ['[시간날 때]', '[보통]', '[중요함]', '[급함]']
-        comment_text += '중요도: %s, ' % priority_text[task.priority]
-
-        status_text = ['[진행 중]', '[완료]', '[보관됨]', '[제외됨]']
-        comment_text += '상태: %s<br>' % status_text[task.status]
-
-        comment_text += '마감일: %s<br>' % \
-                        task.deadline.strftime('%Y.%m.%d %H:%M')
-
-        if args['parents'] != []:
-            new_tasks = ['#%d %s' % (task.parents[0].local_id,
-                                     task.parents[0].name)]
-
-            for parent_id in args['parents'][1:]:
-                parent = models.Task.query. \
-                    filter_by(level=(task.level-1)). \
-                    filter_by(local_id=parent_id).first()
-
-                if parent:
-                    task.parents.append(parent)
-                    parent.update_progress(True)
-                    new_tasks.append('#%d %s' % (parent.local_id, parent.name))
-
-            if new_tasks != []:
-                if task.level == 1:
-                    new_tasks = ['M%s' % s for s in new_tasks]
-                comment_text += '상위 업무:<br>%s<br>' % (', '.join(new_tasks))
-
-        if args['children'] != []:
-            new_tasks = []
-            for child_id in args['children']:
-                child = models.Task.query. \
-                    filter_by(level=(task.level+1)). \
-                    filter_by(local_id=child_id).first()
-
-                if child:
-                    task.children.append(child)
-                    new_tasks.append('#%d %s' % (child.local_id, child.name))
-
-            if new_tasks != []:
-                comment_text += '하위 업무:<br>%s<br>' % (', '.join(new_tasks))
-
-        if args['contributors'] != []:
-            new_contributors = [task.creator.user.nickname]
-            for memberID in args['contributors']:
-                member = models.Member.query.get(memberID)
-                if member:
-                    task.contributors.append(member)
-                    new_contributors.append('%s' % member.user.nickname)
-
-            if new_contributors != []:
-                comment_text += '참여자:<br>%s<br>' % \
-                                (', '.join(new_contributors))
-
-        if args['contributor_auto']:
-            members = set()
-            for task in task.parents:
-                members |= set([mem.id for mem in task.contributors])
-                members |= {task.creator.id}
-            for task in task.children:
-                members |= set([mem.id for mem in task.contributors])
-                members |= {task.creator.id}
-            members -= set([mem.id for mem in task.contributors])
-
-            new_contributors = []
-            for memberID in members:
-                member = models.Member.query.get(memberID)
-                if member:
-                    task.contributors.append(member)
-                    new_contributors.append('%s' % member.user.nickname)
-
-            if new_contributors != []:
-                comment_text += '자동 추가된 참여자:<br>%s<br>' % \
-                                (', '.join(new_contributors))
-
-        if comment_text != '':
-            comment_text = '<blockquote>%s</blockquote>' % comment_text
-            modify_comment = models.TaskComment('새 업무가 생성되었습니다.',
-                                                comment_text, 1,
-                                                current_user.member, task)
-            db.session.add(modify_comment)
-        db.session.commit()
-        return task
-
-    taskModifyParser = reqparse.RequestParser()
-    taskModifyParser.add_argument('name', type=str, default='')
-    taskModifyParser.add_argument('description', type=str, default='')
-    taskModifyParser.add_argument('level', type=int, default=-1)
-    taskModifyParser.add_argument('priority', type=int, default=-1)
-    taskModifyParser.add_argument('status', type=int, default=-1)
-    taskModifyParser.add_argument('progress', type=int, default=-1)
-    taskModifyParser.add_argument('deadline', type=int, default=0)
-    taskModifyParser.add_argument('parents[]', type=int, default=[-1],
-                                  action='append', dest='parents')
-    taskModifyParser.add_argument('children[]', type=int, default=[-1],
-                                  action='append', dest='children')
-    taskModifyParser.add_argument('contributor[]', type=int, default=[-1],
-                                  action='append', dest='contributor')
-
-    @member_required
-    @marshal_with(simple_task_fields)
-    def put(self, taskID, args=None):
-        task = models.Task.query.get(taskID)
-        if not task:
-            return None, 404
-
-        comment_text = ''
-
-        # For non-request updates...
-        if not args:
-            if current_user.member != task.creator and \
-               not current_user.member in task.contributors:
-                return None, 403
-            args = self.taskModifyParser.parse_args()
-
-        if args['name'] != '':
-            task.name = args['name']
-            comment_text += '이름이 변경되었습니다: %s<br>' % task.name
-
-        if args['description'] != '':
-            task.description = args['description']
-            comment_text += '설명이 변경되었습니다:<p>%s</p>' % task.description
-
-            tags = helper.get_tags(task.description)
-
-            for tag in tags:
-                tag_data = models.Tag.query.filter_by(title=tag).first()
-                if not tag_data:
-                    tag_data = models.Tag(tag)
-                    db.session.add(tag_data)
-                if not tag_data in task.tags:
-                    task.tags.append(tag_data)
-
-        if args['level'] != -1:
-            pass
-        if args['progress'] != -1 and task.progress != args['progress']:
-            task.progress = args['progress']
-            comment_text += '진행도가 %d%%로 변경되었습니다.' % task.progress
-            task.update_progress(True)
-
-        if args['priority'] != -1 and args['priority'] != task.priority:
-            task.priority = args['priority']
-            priority_text = ['[시간날 때]로',
-                             '[보통]으로',
-                             '[중요함]으로',
-                             '[급함]으로']
-            comment_text += '중요도가 %s 변경되었습니다.' % priority_text[task.priority]
-
-        if args['status'] != -1 and args['status'] != task.status:
-            status_text = ['[진행 중]으로',
-                           '[완료]로',
-                           '[보관됨]으로',
-                           '[제외됨]으로']
-            task.status = args['status']
-            comment_text += '상태가 %s 변경되었습니다.' % \
-                            status_text[task.status]
-
-        if args['deadline'] != 0:
-            if args['deadline'] != int(task.deadline.timestamp()):
-                task.deadline = datetime.fromtimestamp(args['deadline'])
-                comment_text += '마감일이 변경되었습니다: %s' % \
-                                task.deadline.strftime('%Y.%m.%d %H:%M')
-
-        if args['parents'] != [-1]:
-            original_list = [task.id for task in task.parents]
-            add, sub = helper.list_diff(original_list, args['parents'])
-            deleted_tasks = ['#%d %s' % (task.local_id, task.name)
-                             for task in task.parents if task.id in sub]
-            task.parents = [task for task in task.parents
-                            if not task.id in sub]
-
-            if deleted_tasks != []:
-                comment_text += '제외된 상위 업무:<br>%s<br>' % \
-                                (', '.join(deleted_tasks))
-
-            new_tasks = []
-            for taskID in add:
-                parent = models.Task.query.get(taskID)
-                if parent:
-                    task.parents.append(parent)
-                    parent.update_progress(True)
-                    new_tasks.append('#%d %s' % (parent.local_id, parent.name))
-
-            if new_tasks != []:
-                comment_text += '추가된 상위 업무:<br>%s<br>' % (', '.join(new_tasks))
-
-        if args['children'] != [-1]:
-            original_list = [task.id for task in task.children]
-            add, sub = helper.list_diff(original_list, args['children'])
-            deleted_tasks = ['#%d %s' % (task.local_id, task.name)
-                             for task in task.children if task.id in sub]
-            task.children = [task for task in task.children
-                             if not task.id in sub]
-
-            if deleted_tasks != []:
-                comment_text += '제거된 하위 업무:<br>%s<br>' % \
-                                (', '.join(deleted_tasks))
-
-            if task.level == 1:
-                for taskID in sub:
-                    child = models.Task.query.get(taskID)
-                    if child:
-                        child.status = 3
-                db.session.commit()
-
-            new_tasks = []
-            for taskID in add:
-                child = models.Task.query.get(taskID)
-                if child:
-                    task.children.append(child)
-                    new_tasks.append('#%d %s' % (child.local_id, child.name))
-
-            if new_tasks != []:
-                comment_text += '새 하위 업무:<br>%s<br>' % (', '.join(new_tasks))
-
-        if args['contributor'] != [-1]:
-            original_list = [member.id for member in task.contributors]
-            original_list.append(task.creator.id)
-            add, sub = helper.list_diff(original_list, args['contributor'])
-            print ((original_list, args['contributor']))
-            print ((add, sub))
-            deleted_contributors = ['%s' % member.user.nickname
-                                    for member in task.contributors
-                                    if member.id in sub]
-            task.contributors = [member for member in task.contributors
-                                 if not member.id in sub]
-
-            if deleted_contributors != []:
-                comment_text += '제외된 참여자:<br>%s<br>' % \
-                                (', '.join(deleted_contributors))
-
-            new_contributors = []
-            for memberID in add:
-                member = models.Member.query.get(memberID)
-                if member:
-                    task.contributors.append(member)
-                    new_contributors.append('%s' % member.user.nickname)
-
-            if new_contributors != []:
-                comment_text += '새 참여자:<br>%s<br>' % \
-                                (', '.join(new_contributors))
-
-        if comment_text != '':
-            comment_text = '<blockquote>%s</blockquote>' % comment_text
-            modify_comment = models.TaskComment('내용이 변경되었습니다.',
-                                                comment_text, 1, current_user.member,
-                                                task)
-            db.session.add(modify_comment)
-        db.session.commit()
-
-        notification.Push(current_user.member, task.all_contributors(), task,
-                          models.NotificationAction.update)
-        return task
-
-    @member_required
-    @marshal_with(simple_task_fields)
-    def get(self, taskID):
-        task = models.Task.query.get(taskID)
-        if task:
-            return task
-        return {}
-'''
-api.add_resource(Task, '/api/task', '/api/task/<int:taskID>')
-
-class DeleteTask(Resource):
+class DeleteMemo(Resource):
 
     taskParser = reqparse.RequestParser()
     taskParser.add_argument('id', type=int, default=0)
@@ -1047,184 +1331,476 @@ class DeleteTask(Resource):
     @member_required
     def post(self):
         args = self.taskParser.parse_args()
-        post = models.Task.query.filter_by(id=args['id']).first_or_404()
-        if current_user.member.id != post.creator_id:
+        memo = models.Memo.query.filter_by(id=args['id']).first_or_404()
+        if current_user.id != memo.writer_id:
             return "Not Allowed", 403
 
-        db.session.delete(post)
+        db.session.delete(memo)
         db.session.commit()
         return "Success", 200
+api.add_resource(DeleteMemo, '/api/memo/delete')
 
-api.add_resource(DeleteTask, '/api/task/delete')
-
-class Issue(Resource):
-    @member_required
-    @marshal_with(simple_task_fields)
-    def get(self):
-        issues = models.Task.query.filter_by(level=1).all()
-        return issues
-
-
-api.add_resource(Issue, '/api/issue')
-
-
-class Milestone(Resource):
-    @member_required
-    @marshal_with(simple_task_fields)
-    def get(self):
-        milestones = models.Task.query.filter_by(level=0).all()
-        return milestones
-
+class MakeActivity(Resource):
     @member_required
     def post(self):
-        return None, 501
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('type', type=int)
+        postParser.add_argument('name', type=str)
+        postParser.add_argument('totalscore', type=int)
+        postParser.add_argument('quarter_id', type=int)
+        
+        args = postParser.parse_args()
 
+        if args['quarter_id'] != Current().quarter.id:
+            return abort(403)
+        if not current_user.id in Current().page_manager_ids():
+            return abort(403)
 
-api.add_resource(Milestone, '/api/milestone')
+        activity = models.Activity(
+            args['type'], args['name'], args['totalscore'])
+        activity.quarter_id=args['quarter_id']
 
-
-class TaskComment(Resource):
-    commentParser = reqparse.RequestParser()
-    commentParser.add_argument('title', type=str, required=True,
-                               help='Title is required')
-    commentParser.add_argument('body', type=str, default='')
-    commentParser.add_argument('task_id', type=int, default=-1)
-    commentParser.add_argument('redirect', type=str, default='')
-
-    @member_required
-    def post(self):
-        args = self.commentParser.parse_args()
-        task = models.Task.query.get(args['task_id'])
-        if not task:
-            abort(404)
-        task_comment = models.TaskComment(args['title'], args['body'],
-                                          0, current_user.member, task)
-        db.session.add(task_comment)
-
-        tags = helper.get_tags(task_comment.body)
-
-        for tag in tags:
-            tag_data = models.Tag.query.filter_by(title=tag).first()
-            if tag_data:
-                task_comment.tags.append(tag_data)
-            else:
-                tag_data = models.Tag(tag)
-                task_comment.tags.append(tag_data)
-                db.session.add(tag_data)
-
-        files = request.files.getlist("files")
-
-        file_uploaded = False
-
-        for file in files:
-            if helper.process_file(file, task_comment):
-                file_uploaded = True
-
-        if file_uploaded:
-            task_comment.comment_type = 3
-
+        if activity.type == 0:
+            members = Current().active("actives")
+            for member in members:
+                activity.members.append(member)
+        db.session.add(activity)
         db.session.commit()
-        if (args['redirect']):
-            notification.Push(current_user.member, task.all_contributors(),
-                              task_comment, models.NotificationAction.create)
-            return redirect(args['redirect'])
+        return "Success", 200
+api.add_resource(MakeActivity, '/api/activity/make')
 
-        notification.Push(current_user.member, task.all_contributors(),
-                          task_comment, models.NotificationAction.create)
-        return str(task_comment)
-
+class ModifyActivity(Resource):
     @member_required
-    def get(self, commentID):
-        task_comment = models.TaskComment.query.get(commentID)
-        if task_comment:
-            return str(task_comment)
-        return {}
+    def post(self):
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('id', type=int)
+        postParser.add_argument('name', type=str)
+        postParser.add_argument('totalscore', type=int)
 
+        args = postParser.parse_args()
 
-api.add_resource(TaskComment, '/api/task_comment',
-                 '/api/task_comment/<int:commentID>')
+        if not current_user.id in Current().page_manager_ids():
+            return abort(403)
 
+        activity = models.Activity.query.get(args['id'])
+        activity.name = args['name']
+        activity.totalscore = args['totalscore']
+        db.session.add(activity)
+        db.session.commit()
+        return "Success", 200
+api.add_resource(ModifyActivity, '/api/activity/modify')
 
-user_fields = {
-    'nickname': fields.String,
-    'username': fields.String,
-    'email': fields.String
+class DeleteActivity(Resource):
+    @member_required
+    def post(self,id):
+        if not current_user.id in Current().page_manager_ids():
+            return abort(403)
+        activity = models.Activity.query.get(id)
+        db.session.delete(activity)
+        db.session.commit()
+        return "Success", 200
+api.add_resource(DeleteActivity, '/api/activity/<int:id>/delete')
+
+class UpdateActivityScore(Resource):
+    @member_required
+    def post(self):
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('activity_id', type=int)
+        postParser.add_argument('member_id', type=int)
+        postParser.add_argument('score', type=int)
+
+        args = postParser.parse_args()
+
+        if not current_user.id in Current().page_manager_ids():
+            return abort(403)
+        scoreforupdate = models.Member_Activity.query.filter(and_(models.Member_Activity.activity_id==args['activity_id'],models.Member_Activity.member_id==args['member_id'])).first()
+        scoreforupdate.score = args['score']
+
+        db.session.add(scoreforupdate)
+        db.session.commit()
+        return "Success", 200
+api.add_resource(UpdateActivityScore, '/api/quarter/memberactivity/update')
+
+class AddActivityMember(Resource):
+    @member_required
+    def post(self):
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('activity_id', type=int)
+        postParser.add_argument('member_ids', type=str)
+
+        args = postParser.parse_args()
+        member_ids = args['member_ids'].strip().split(" ")
+        member_ids = list(map(int, member_ids))
+
+        if not current_user.id in Current().page_manager_ids():
+            return abort(403)
+
+        activity = models.Activity.query.filter_by(id=args['activity_id']).first()
+
+        for member_id in member_ids:
+            member = models.User.query.filter_by(id=member_id).first()
+            if member in activity.members:
+                pass
+            else:
+                activity.members.append(member)
+
+        db.session.add(activity)
+        db.session.commit()
+
+        return "Success",200
+api.add_resource(AddActivityMember, '/api/quarter/memberactivity/add')
+
+class DeleteActivityMember(Resource):
+    @member_required
+    def post(self):
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('activity_id', type=int)
+        postParser.add_argument('member_id', type=int)
+        args=postParser.parse_args()
+
+        if not current_user.id in Current().page_manager_ids():
+            return abort(403)
+
+        activity = models.Activity.query.filter_by(id=args['activity_id']).first()
+        member = models.User.query.filter_by(id=args['member_id']).first()
+        activity.members.remove(member)
+
+        db.session.add(activity)
+        db.session.commit()
+
+        return "Success",200
+api.add_resource(DeleteActivityMember, '/api/quarter/memberactivity/delete')
+
+class UpdateConferenceState(Resource):
+    @member_required
+    def post(self):
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('conference_id', type=int)
+        postParser.add_argument('member_id', type=int)
+        postParser.add_argument('state', type=int)
+
+        args = postParser.parse_args()
+
+        if request.referrer.find('/stem/record/write/') > -1:
+            if not current_user in Current().active('actives'):
+                return abort(403)
+        else:
+            if not current_user.id in Current().page_manager_ids():
+                return abort(403)
+
+        stateforupdate = models.Member_Conference.query.filter(and_(models.Member_Conference.conference_id==args['conference_id'],models.Member_Conference.member_id==args['member_id'])).first()
+        stateforupdate.state = args['state']
+
+        db.session.add(stateforupdate)
+        db.session.commit()
+        return "Success", 200
+api.add_resource(UpdateConferenceState, '/api/quarter/memberconference/update')
+
+class AddConferenceMember(Resource):
+    @member_required
+    def post(self):
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('conference_id', type=int)
+        postParser.add_argument('member_ids', type=str)
+
+        args = postParser.parse_args()
+        member_ids = args['member_ids'].strip().split(" ")
+        member_ids = list(map(int, member_ids))
+
+        if request.referrer.find('/stem/record/write/') > -1:
+            if not current_user in Current().active('actives'):
+                return abort(403)
+        else:
+            if not current_user.id in Current().page_manager_ids():
+                return abort(403)
+
+        conference = models.Conference.query.filter_by(id=args['conference_id']).first()
+
+        for member_id in member_ids:
+            member = models.User.query.filter_by(id=member_id).first()
+            if member in conference.members:
+                pass
+            else:
+                conference.members.append(member)
+
+        db.session.add(conference)
+        db.session.commit()
+
+        return "Success",200
+api.add_resource(AddConferenceMember, '/api/quarter/memberconference/add')
+
+class DeleteConferenceMember(Resource):
+    @member_required
+    def post(self):
+        postParser = reqparse.RequestParser()
+        postParser.add_argument('conference_id', type=int)
+        postParser.add_argument('member_ids', type=str)
+        args=postParser.parse_args()
+
+        member_ids = args['member_ids'].strip().split(" ")
+        member_ids = list(map(int, member_ids))
+
+        if request.referrer.find('/stem/record/write/') > -1:
+            if not current_user in Current().active('actives'):
+                return abort(403)
+        else:
+            if not current_user.id in Current().page_manager_ids():
+                return abort(403)
+
+        conference = models.Conference.query.filter_by(id=args['conference_id']).first()
+
+        for member_id in member_ids:
+            member = models.User.query.filter_by(id=member_id).first()
+            if member in conference.members:
+                conference.members.remove(member)
+            else:
+                pass
+
+        db.session.add(conference)
+        db.session.commit()
+
+        return "Success",200
+api.add_resource(DeleteConferenceMember, '/api/quarter/memberconference/delete')
+
+comment_fields = {
+    'id' : fields.Integer,
+    'body' : fields.String,
+    'timestamp' : fields.DateTime,
+    'member_id' : fields.Integer,
+    'writer_id' : fields.Integer
 }
 
-
-member_fields = {
-    'id': fields.Integer,
-    'cycle': fields.Integer,
-    'stem_dept': fields.String,
-    'dept': fields.String,
-    'cv': fields.String,
-    'comment': fields.String,
-    'img': fields.String,
-    'cover': fields.String,
-    'addr': fields.String,
-    'phone': fields.String,
-    'birthday': fields.String,
-    'user': fields.Nested(user_fields),
-    'social': fields.String
-}
-
-
-class Member(Resource):
+class MemberComment(Resource):
     @member_required
-    @marshal_with(member_fields)
-    def get(self, memberID):
-        member = models.Member.query.get(memberID)
+    @marshal_with(comment_fields)
+    def post(self):
+        commentParser = reqparse.RequestParser()
+        commentParser.add_argument('member_id', type=int)
+        commentParser.add_argument('writer_id', type=int)
+        commentParser.add_argument('body', type=str)
+
+        args = commentParser.parse_args()
+        member = models.User.query.get(args['member_id'])
+        writer = models.User.query.get(args['writer_id'])
         if not member:
             return None, 404
+        comment = models.Member_Comment(
+            args['body'],member, writer)
 
-        return member
+        db.session.add(comment)
+        db.session.commit()
 
-
-api.add_resource(Member, '/api/member/<int:memberID>')
-
-
-class Event(Resource):
-    class DateFormat(fields.Raw):
-        def format(self, date):
-            return date.timestamp() * 1000
-
-    event_fields = {
-        'id': fields.Integer,
-        'title': fields.String(attribute='name'),
-        'start': DateFormat(attribute='deadline'),
-        'url': fields.String,
-        'color': fields.String
-    }
-
-    dateParser = reqparse.RequestParser()
-    dateParser.add_argument('start', type=str, default='')
-    dateParser.add_argument('end', type=str)
-    dateParser.add_argument('level', type=int, default=-1)
+        return comment, 201
 
     @member_required
-    @marshal_with(event_fields)
-    def get(self):
-        args = self.dateParser.parse_args()
-        if args['start'] == '':
-            return models.Task.query.all()
-        start = datetime.strptime(args['start'], '%Y-%m-%d')
-        end = datetime.strptime(args['end'], '%Y-%m-%d')
+    def delete(self, id):
+        comment = models.Member_Comment.query.filter_by(id=id).first()
+        if comment:
+            if current_user == comment.writer:
+                db.session.delete(comment)
+                db.session.commit()
+                return True, 200
+            else:
+                return False, 401
+        else:
+            return None, 404
+api.add_resource(MemberComment, '/api/people/comment', '/api/people/comment/<int:id>')
 
-        events = models.Task.query.filter(
-            and_(models.Task.deadline >= start,
-                 models.Task.deadline < end)).filter(
-            not_(and_(models.Task.level == 2,
-                      ~models.Task.parents.any()))).filter_by(status=0)
-        if args['level'] >= 0:
-            events = events.filter_by(level=args['level'])
-        events = events.all()
-        task_type = ['milestone', 'issue', 'subtask']
-        task_color = ['#00c0ef', '#00a65a', '#f39c12', '#dd4b39']
-        for event in events:
-            event.url = "/stem/%s/%d" % (task_type[event.level], event.id)
-            event.color = task_color[event.priority]
-            event.name = "[%s] %s" % (event.repr_id(), event.name)
+class DeleteNote(Resource):
+    @member_required
+    def post(self):
+        noteParser = reqparse.RequestParser()
+        noteParser.add_argument('id', type=int)
+        noteParser.add_argument('sent_del', type=int)
+        noteParser.add_argument('recv_del', type=int)
+        args=noteParser.parse_args()
 
-        return events
+        note = models.Note.query.filter_by(id=args['id']).first()
 
-api.add_resource(Event, '/api/deadlines')
+        if not note:
+            return None, 404
+        if not current_user in [note.sender,note.receiver]:
+            return None, 403
+
+        if args['sent_del']:
+            note.sent_del=args['sent_del']
+        elif args['recv_del']:
+            note.recv_del=args['recv_del']
+        else:
+            return False, 401
+
+        db.session.add(note)
+        db.session.commit()
+
+        note = models.Note.query.get(args['id'])
+        if note.sent_del != 0 and note.recv_del != 0:
+            db.session.delete(note)
+            db.session.commit()
+api.add_resource(DeleteNote, '/api/note/delete')
+
+class MakeNote(Resource):
+    @member_required
+    def post(self):
+        noteParser = reqparse.RequestParser()
+        noteParser.add_argument('receiver', type=str)
+        noteParser.add_argument('sent_id', type=int)
+        noteParser.add_argument('body', type=str)
+        noteParser.add_argument('sendmail', type=int)
+        args=noteParser.parse_args()
+
+        note = models.Note()
+        recv = models.User.query.filter_by(username=args['receiver']).first()
+        if recv is None:
+            return "해당 계정이 존재하지 않습니다.", 404
+        if not recv.ismember:
+            return "공우 회원이 아닌 계정으로 쪽지를 보낼 수 없습니다.", 404
+        if recv == current_user:
+            return "자기 자신에게 쪽지를 보낼 수 없습니다.", 404
+        note.recv_id = recv.id
+        note.sent_id = args['sent_id']
+        note.timestamp = datetime.now()
+        note.body = args['body']
+
+        db.session.add(note)
+        db.session.commit()
+
+        receiver_img = note.receiver.img or 'profile/default.png'
+        print(args['sendmail'])
+        if args['sendmail'] == 1:
+            html = render_template(
+                'memberapp/note_content.html',
+                recv=recv, current_user=current_user, body=args['body'])
+            subject = "[공우(STEM)] " + recv.nickname + " 회원님, STEM 쪽지함에 쪽지가 도착했습니다."
+
+            send_email(recv.email, subject, html)
+
+        msg = [str(note.receiver.cycle)+"기 "+note.receiver.nickname+" 회원에게 쪽지가 전달되었습니다.", \
+        note.id, receiver_img, note.receiver.nickname, note.receiver.username, note.timestamp.strftime('%Y-%m-%d %H:%M'), note.body]
+
+        return msg, 200
+api.add_resource(MakeNote, '/api/note/make')
+
+class ReadNote(Resource):
+    @member_required
+    def post(self):
+        noteParser = reqparse.RequestParser()
+        noteParser.add_argument('id', type=int)
+        noteParser.add_argument('recv_read', type=int)
+        args=noteParser.parse_args()
+
+        note = models.Note.query.filter_by(id=args['id']).first()
+        if not note:
+            return None, 404
+
+        if not current_user is note.receiver:
+            return None, 403
+
+        if note.recv_read == 0 and args['recv_read'] != 0:
+            note.recv_read = 1
+            db.session.add(note)
+            db.session.commit()
+            return "Success", 200
+
+        return "Success", 200
+api.add_resource(ReadNote, '/api/note/read')
+
+class Favorite(Resource):
+    @member_required
+    def post(self, boardmember_id):
+        board = models.BoardMember.query.filter_by(id=boardmember_id).first_or_404()
+        if board in current_user.preferred_boards:
+            return "Error", 404
+        else:
+            current_user.preferred_boards.append(board)
+            db.session.add(current_user)
+            db.session.commit()
+            return "Successdd", 200
+        
+
+    @member_required
+    def delete(self, boardmember_id):
+        board = models.BoardMember.query.filter_by(id=boardmember_id).first_or_404()
+        for b in current_user.preferred_boards:
+            if board.id == b.id:
+                pref = models.Member_Preference.query. \
+                    filter(and_(models.Member_Preference.member_id==current_user.id,
+                        models.Member_Preference.boardmember_id==board.id)).first()
+                db.session.delete(pref)
+                db.session.commit()
+                return "Success", 200
+        return "Error", 404
+api.add_resource(Favorite, '/api/favorite/add/<int:boardmember_id>', '/api/favorite/del/<int:boardmember_id>')
+
+comment_fields = {
+    'id': fields.Integer,
+    'body': fields.String,
+    'timestamp': fields.DateTime
+}
+
+class Comment(Resource):
+    @marshal_with(comment_fields)
+    def get(self, commentID, MorR):
+        if MorR == "M": # False for BoardMember
+            comment = models.CommentMember.query.get(commentID)
+        elif MorR == "R": # True for Record
+            comment = models.CommentRecord.query.get(commentID)
+        else:
+            return None, 404
+
+        if comment:
+            return comment
+        return None, 404
+
+    @member_required
+    @marshal_with(comment_fields)
+    def post(self, MorR):
+        commentParser = reqparse.RequestParser()
+        commentParser.add_argument('body', type=str)
+        commentParser.add_argument('userID', type=int)
+        commentParser.add_argument('postID', type=int)
+
+        args = commentParser.parse_args()
+        writer = models.User.query.get(args['userID'])
+        if MorR == "M":
+            post = models.PostMember.query.get(args['postID'])
+            if not post:
+                return None, 404
+            comment = models.CommentMember(args['body'], writer, post)
+        elif MorR == "R":
+            post = models.Record.query.get(args['postID'])
+            if not post:
+                return None, 404
+            comment = models.CommentRecord(args['body'], writer, post)
+        else:
+            return None, 404
+
+        db.session.add(comment)
+        db.session.commit()
+
+        return comment, 201
+
+    @member_required
+    def delete(self, commentID, MorR):
+        if MorR == "M": # False for BoardMember
+            comment = models.CommentMember.query.get(commentID)
+            if comment:
+                if (current_user == comment.membercommenter) or (current_user == comment.postmember.boardmember.owner):
+                    comment.remove()
+                    return True, 200
+                else:
+                    return None, 404
+            else:
+                return None, 404
+        elif MorR == "R": # True for Record
+            comment = models.CommentRecord.query.get(commentID)
+            if comment:
+                if current_user == comment.recordcommenter:
+                    comment.remove()
+                    return True, 200
+                else:
+                    return None, 404
+            else:
+                return None, 404
+        else:
+            return None, 404
+api.add_resource(Comment, '/api/post/comment/<string:MorR>', '/api/post/comment/<string:MorR>/<int:commentID>')
