@@ -6,6 +6,7 @@ app.db*
 dbinfo
 
 app/static/upload/*
+app/mail_config.py
 
 uwsgi.ini
 client_secret.json
