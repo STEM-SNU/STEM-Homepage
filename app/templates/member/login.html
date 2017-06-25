@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block container %}
+<!-- container -->
+
+<style>
+.login_box {border:3px solid #f47a35;height:250px;border-radius:20px;width:600px;padding:10px 30px;}
+.login_box > h3 {margin: 20px 0 0 30px;}
+h3 {font-size: 20px; line-height: 30px;}
+h4 {font-size: 16px; line-height: 20px;}
+form {
+    padding: 10px;
+    margin: 10px 0  0 140px;
+}
+form * {
+    margin: 2px;
+}
+form button {
+    border: 1px solid #ccc;
+    border-radius: 2px;
+}
+form .btn_login {
+    height: 75px;
+    width: 70px;
+}
+
+form input {
+    width: 200px;
+    height: 27px;
+}
+form button {
+    height: 25px;
+}
+</style>
+<div id="container">
+    <div class="contain">
+        <div class="s_contents">
+        </div>
+        <div class="con">
+            <ul class="nostyle">
+                <li class="nostyle stit"><div class="title-img"><span>Login</span></div></li>
+            </ul>
+            <article>
+                <div class="login_box">
+                {% if current_user.is_authenticated() %}
+                <div style="text-align:center;margin-top:80px;">
+                    <h3>{{current_user.nickname}}님,허가되지 않은 접근입니다.</h3>
+                    <h4 style="margin-top:20px;">401 Forbidden</h4>
+                </div>
+
+                {% else %}
+                <h3>로그인이 필요한 서비스입니다.</h3>
+                <form name="login" method="post" action="{{ url_for('login') }}" onSubmit="mainLoginInputSendit(login);event.returnValue = false;">
+                {{ form.hidden_tag() }}
+                <div style="height:85px;">
+                    <div style="float:left">
+                        <input name="userid" placeholder=" ID" maxlength='15' type=text class="memb" tabindex="1" onkeydown="mainLoginInputSendit(login);"><br>
+                        <input name="password" placeholder=" PW" maxlength='50' type="password" class="memb"tabindex="2" onkeydown="mainLoginInputSendIt(login);">
+                    </div>
+                    <div style="float:left">
+                        <button type="submit" class="btn_login" tabindex="3" onclick='mainLoginSend(login);'>로그인</button>
+                    </div>
+                    {% if form.userid.errors | length > 0 %}
+                    <script>alert("{{form.userid.errors[0]}}");</script>
+                    {% endif %}
+                    {% if form.password.errors | length > 0 %}
+                    <script>alert("{{form.password.errors[0]}}");</script>
+                    {% endif %}
+                </div>
+                <div>
+                    <button type="button" class="btn_mid" onclick="location.href='{{ url_for('register') }}'">회원가입</button>
+                    <button type="button" class="btn_mid" onclick="javascript:go_menu('id_seek')">아이디 찾기</button>
+                    <button type="button" class="btn_mid" onclick=javascript:go_menu('pw_seek')>비밀번호 찾기</button>
+                </div>
+                </form>
+                {% endif %}
+                </div>
+            </article>
+        </div>
+    </div>
+</div>
+{% endblock %}
