@@ -1,0 +1,223 @@
+{% extends "memberapp/base.html" %}
+
+{% block content %}
+ <section class="content-header">
+  <h1>
+    {{record.title}}
+    <small>{{record.confday.strftime('%Y-%m-%d')}}, {{record.confplace}}, written by <a href='/stem/people/{{record.writer_id}}'>{{record.recordwriter.nickname}}</a> ({{record.recordwriter.username}})</small>
+  </h1>
+
+  <ol class="breadcrumb">
+    <li><a href="/stem"><i class="fa fa-list-ul"></i> Home</a></li>
+    <li><a href="/stem/record">Conference Record</a></li>
+    <li class="active"># {{record.id}}</li>
+  </ol>
+</section>
+
+<!-- Main content -->
+<section class="content">
+<div class="row">
+      <div class="col-xs-12">
+            <div class="box">
+                <div class="box-body">
+                <p class="text-center" style="padding-bottom:10px; border-bottom:1px solid #eeeeee;"><big><b>{{record.title}} 회의록</b></big> (서기 : {{record.recordwriter.nickname}} / 작성 : {{record.timestamp.strftime('%y-%m-%d %H:%M:%S')}})</p>
+                {% if record.body %}
+                {{record.body | safe}}
+                {% else %}
+                <h4 class="text-center" style="margin:0 10px;">회의록이 작성되지 않았습니다.</h4>
+                {% endif %}
+                </div>
+                {% if record.files | length > 0 %}
+                <div class="box-footer"> 
+                <span class="badge"> Attached </span>
+                    {% for file in record.files %}
+                        <div class="attached" style="display:inline-block; margin:5px 0;">
+                        <span>
+                        {% if file.link.split('.')[::-1][0] in ['jpg', 'JPG', 'png', 'PNG', 'gif', 'GIF', 'bmp', 'BMP'] %}
+                        <a class="attach-badge label bg-blue" style="margin:5px;">{{file.name}}
+                        <span><img src="/static/upload/{{file.link}}" alt="image" class="miribogi" onClick="saveImg('{{file.name}}','{{file.link}}')"/></span></a>
+                        {% else %}
+                        <a class="attach-badge label bg-blue" href="/static/upload/{{file.link}}" download="{{file.name}}" style="margin:5px;">{{file.name}}
+                        </a>
+                        {% endif %}
+                        {% if record.recordwriter.id == current_user.id %}<span class="badge bg-red" onClick="deleteFile('{{file.link}}')"><i class="fa fa-times"></i></span>&nbsp;{% endif %}</span>
+                        </div>
+                    {% endfor %}
+                 </div>
+                {% endif %}
+                <div class="btn-group pull-right" style="margin:20px 0;">
+                    <button type="button" class="btn btn-primary printhide" onclick="printwithcomments(0)">프린트</a>
+                    <button type="button" class="btn btn-primary printhide" onclick="printwithcomments(1)">프린트(댓글 포함)</a>
+            </div>   
+        </div>
+
+
+<div class="col-xs-12">
+    <div class="box">
+        <div class="box-body">
+            <table>
+                <tbody>
+                    <tr class="printhide">
+                        <td style="padding-bottom:5px;">Comment</td>
+                    </tr>
+                    <tr class="comment-write printhide">
+                        <td style="width:100%; text-align:center;">
+                            <textarea rows="3" style="width:98%;" id="comment-text" {% if not record.body %}disabled{% endif %}></textarea>
+                        </td>
+                        <td>
+                            <button class="btn btn-default pull-right" onclick="submitComment()" {% if not record.body %}disabled{% endif %}>Post</button>
+                        </td>
+                    </tr>
+
+                    <tr class="comprint printhide">
+                        <td colspan="6" style="border:hidden; padding-top:10px; padding-bottom:10px;"><b>댓글</b> &nbsp; <span id="commentCount" style="color:#f19000; font-size:2rem;">{{record.commentCount}}</span></td>
+                    </tr>
+                    <tr class="comprint printhide">
+                        <td colspan="6">
+                            <ul class="list-group list-unstyled" id="comments">
+                            {% for comment in comments %}
+                                <li class="list-group-items" data-comment-id="{{comment.id}}">
+                                    <h5><a href="/stem/people/{{comment.user_id}}"><img style="width:30px; height:30px; border-radius:30px;" src="/static/upload/{{ comment.recordcommenter.img or 'profile/default.png' }}"><b>&nbsp;{{comment.recordcommenter.nickname}}&nbsp;</b></a>({{comment.recordcommenter.username}})&nbsp;<small>{{comment.timestamp.strftime('%Y-%m-%d %H:%M')}}</small>
+                                    {% if (comment.recordcommenter == current_user) %} <i onclick="deleteComment({{comment.id}})" class="fa fa-times command-elem"></i>{% endif %}
+                                    </h5>
+                                        <div class="comment-body">
+                                        {{comment.body | nl2br}}
+                                        </div>
+                                <hr></li>
+                            {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>  
+</div>
+
+</section>
+{% endblock %}
+
+{% block modals %}
+{% endblock %}
+
+{% block styles %}
+<style>
+@media print {
+    .printhide {display:none;}
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function printwithcomments(bool) {
+    if (bool == false) {
+        $('.comprint').addClass('printhide');
+        window.print();
+    } else {
+        $('.comprint').removeClass('printhide');
+        window.print();
+    }
+}
+
+function deleteFile(filename) {
+    var r = confirm("정말로 삭제하시겠습니까?");
+        if (r) {
+            jQuery.ajax({
+                url: "/deletefile/" + filename,
+                type: "GET",
+                success: function(data) {
+                    location.reload();
+                }
+            });
+        }
+}
+
+
+function submitComment() {
+    (function ($) {
+        if($("#comment-text").val() == ""){alert("빈 댓글입니다."); return;}
+
+        $.ajax({
+            url: "/stem/api/post/comment/R",
+            type: "POST",
+            data: {
+                body: $("#comment-text").val(),
+                postID: {{record.id}},
+                userID: {{current_user.id}}
+            },
+            success: function(data) {
+                data.body.replace("\n","<br>");
+                var time = moment(data.timestamp).utcOffset(0);
+                var text = "<li data-comment-id=" + data.id + "><h5><a href='/stem/people/{{current_user.id}}''><img style='width:30px; height:30px; border-radius:30px;' src='/static/upload/{{ current_user.img or 'profile/default.png' }}'>&nbsp;<b>" +
+                    "{{current_user.nickname}}" + "</b></a>&nbsp;" + "({{current_user.username}})&nbsp;<small>" + time.format('YYYY-MM-DD HH:mm') +
+                    "</small> <i onclick='deleteComment(" + data.id + ")'" +
+                    "class='fa fa-times command-elem'></i></h5>" +
+                    "<div class='comment-body'>" + data.body.replace(/\n/g,'<br>') + "</div><hr></li>";
+
+                    $("#comments").append(text);
+                    $("comment-text").val("");
+                document.getElementById("commentCount").innerHTML=eval($("#commentCount").text())+1;
+            }
+        });
+        $("#comment-text").val("");
+    })(jQuery);
+}
+function deleteComment(commentID) {
+    (function($) {
+        var r = confirm("정말로 삭제하시겠습니까?");
+        if(!r) return;
+        $.ajax({
+            url: "/stem/api/post/comment/R/" + commentID,
+            type: "DELETE",
+            success: function() {
+                $("li[data-comment-id="+commentID+"]").remove();
+                document.getElementById("commentCount").innerHTML=eval($("#commentCount").text())-1;
+            }
+        });
+    })(jQuery);
+}
+
+function saveImg(name,link){
+    var a = document.createElement('a');
+    a.download = name;
+    a.href = '/static/upload/'+link;
+    a.click();
+}
+
+$(document).ready(function () {
+    var $miri = $(".miribogi")
+    if ($(window).width() < 768) {
+    $miri.css('max-width',$(window).width()*0.8);
+    } else {
+    $miri.css('max-width','400px');
+    }
+    $miri.each(function(index, item) {
+    if ($(this).offset().left < 0) {
+        $(this).offset({left: 0});
+        }
+    if ($(this).offset().left + $(this).width() > $(window).width()) {
+        $(this).offset({left: $(window).width() - 1*$(this).width()});
+        }
+    });
+});
+
+$(window).resize(function () {
+    var $miri = $(".miribogi")
+    if ($(window).width() < 768) {
+    $miri.css('max-width',$(window).width()*0.8);
+    } else {
+    $miri.css('max-width','400px');
+    };
+    $miri.each(function(index, item) {
+    if ($(this).offset().left < 0) {
+        $(this).offset({left: 0});
+        }
+    if ($(this).offset().left + $(this).width() > $(window).width()) {
+        $(this).offset({left: $(window).width() - 1*$(this).width()});
+        }
+    });
+});
+
+</script>
+{% endblock %}

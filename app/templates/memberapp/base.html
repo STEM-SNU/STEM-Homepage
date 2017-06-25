@@ -36,7 +36,7 @@
         <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
     <![endif]-->
   </head>
-{% if not current_user.member %}
+{% if not current_user.ismember %}
   <script type="text/javascript">
     location.href = "/"
   </script>
@@ -68,35 +68,97 @@
               <!-- Messages: style can be found in dropdown.less-->
               <li class="dropdown messages-menu">
                 <!-- Menu toggle button -->
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                <a href="#" class="dropdown-toggle">
                   <i class="fa fa-envelope-o"></i>
-                  <span class="label label-success">0</span>
+                  <span class="label label-success rnotelen">{{rnotes|length}}</span>
                 </a>
                 <ul class="dropdown-menu">
-                  <li class="header text-center">0개의 새 메세지가 있습니다.</li>
+                  <li class="header text-center opennote">받은 쪽지함 <span class="label label-success label-as-badge rnotelen">{{rnotes|length}}</span></li>
                   <li>
+
                     <!-- inner menu: contains the messages -->
-                    <ul class="menu">
-                      {#
-                      <li><!-- start message -->
-                        <a href="#"> 
-                          <div class="pull-left">
+                    <ul class="menu" style="max-height:400px;">
+                      {% for note in rnotes %}
+                      <li recv_id="{{note.id}}" class="note_received"><!-- start message -->
+                        <a> 
+                          <div class="pull-left" style="width:40px;">
                             <!-- User Image -->
-                            <img src="{{url_for('static', filename='adminLTE/dist/img/user2-160x160.jpg')}}" class="img-circle" alt="User Image"/>
+                            <img src="/static/upload/{{ note.sender.img or 'profile/default.png' }}" class="img-circle" alt="User Image"/>
                           </div>
                           <!-- Message title and timestamp -->
                           <h4>
-                            Support Team
-                            <small><i class="fa fa-clock-o"></i> 5 mins</small>
+                            {{note.sender.nickname}} <span id="senderid-{{note.id}}" style="font-size:10px;">{{note.sender.username}}</span>
+                            <small><i class="fa fa-clock-o"></i> {{note.timestamp.strftime('%Y-%m-%d %H:%M')}}</small>
                           </h4>
                           <!-- The message -->
-                          <p>Why not buy a new awesome theme?</p>
+                          <p class="notebody_received" style="overflow:hidden; text-overflow:ellipsis; word-break: break-all; white-space:nowrap;">{{note.body | safe}}</p>
                         </a>
                       </li><!-- end message -->
-                      #}
+                      {% endfor %}
+                    </ul><!-- /.menu -->
+
+                  </li>
+                  <li class="header text-center opennote">보낸 쪽지함 <span class="label label-warning label-as-badge snotelen">{{snotes|length}}</span></li>
+                  <li style="display:none;">
+
+                    <!-- inner menu: contains the messages -->
+                    <ul id="snotes_menu" class="menu" style="max-height:400px;">
+                      {% for note in snotes %}
+                      <li sent_id="{{note.id}}" class="note_sent"><!-- start message -->
+                        <a> 
+                          <div class="pull-left" style="width:40px;">
+                            <!-- User Image -->
+                            <img src="/static/upload/{{ note.receiver.img or 'profile/default.png' }}" class="img-circle" alt="User Image"/>
+                          </div>
+                          <!-- Message title and timestamp -->
+                          <h4>
+                            {{note.receiver.nickname}}<span style="font-size:10px;">({{note.receiver.username}})
+                            {%if note.recv_read == 1%} <i class="fa fa-paper-plane"></i>{% else %} <i class="fa fa-paper-plane-o"></i>{% endif %}</span>
+                            <small><i class="fa fa-clock-o"></i> {{note.timestamp.strftime('%Y-%m-%d %H:%M')}}</small>
+                          </h4>
+                          <!-- The message -->
+                          <p class="notebody_sent" style="overflow:hidden; text-overflow:ellipsis; word-break: break-all; white-space:nowrap;">{{note.body | safe}}</p>
+                        </a>
+                      </li><!-- end message -->
+                      {% endfor %}
+                    </ul><!-- /.menu -->
+
+                  </li>
+                  <li class="header text-center opennote">새로운 쪽지 <span class="label label-primary label-as-badge"><i class="fa fa-plus"></i></span></li>
+                  <li style="display:none;">
+                    <!-- inner menu: contains the messages -->
+                    <ul class="menu" style="max-height:400px;">
+                    <form id="notesend" onSubmit='return false;'>
+                    <input name="sent_id" type="hidden" value="{{current_user.id}}">
+                    <table class="table table-hover" style="margin:0;">
+                    <tbody>
+                      <tr class="text-center">
+                        <th style="width:25%; vertical-align:middle; text-align:center;">ID</th>
+                        <td style="width:85%;">
+                          <input class="form-control" type="text" name="receiver" id="note_receiver">
+                        </td>
+                      </tr>
+                      <tr>
+                        <th style="width:25%; vertical-align:middle; text-align:center;">내용</th>
+                        <td style="width:85%;">
+                          <textarea class="form-control" type="text" rows="5" name="body" id="notebody_write"></textarea>
+                        </td>
+                      </tr>
+                      <tr>
+                      	<td colspan="2" style="vertical-align:middle;">
+                      		<button type="submit" class="btn btn-primary pull-right" style="width:70px;">보내기</button>
+	                        <div class="material-switch pull-left" style="margin:6px;">
+                            <input id="sendmail" name="sendmail" type="checkbox"/>
+                            <label for="sendmail" class="label-warning"></label>&nbsp;&nbsp;메일로 함께 전송
+                        	</div>
+                      	</td>
+                      </tr>
+                    </tbody>
+                    </table>
+
+                    </form>
                     </ul><!-- /.menu -->
                   </li>
-                  <li class="footer"><a href="#">메세지 모두 보기</a></li>
                 </ul>
               </li><!-- /.messages-menu -->
 
@@ -121,7 +183,6 @@
                       {% endfor %}
                     </ul>
                   </li>
-                  <li class="footer"><a href="#">모두 보기</a></li>
                 </ul>
               </li>
               <!-- Tasks Menu -->
@@ -164,25 +225,25 @@
                 <!-- Menu Toggle Button -->
                 <a href="#" class="dropdown-toggle" data-toggle="dropdown">
                   <!-- The user image in the navbar-->
-                  {% if member.img and member.img != "" %}
-                    <img src="{{url_for('static', filename=('upload/' + member.img))}}" class="user-image" alt="User Image" />
+                  {% if current_user.img and current_user.img != "" %}
+                    <img src="{{url_for('static', filename=('upload/' + current_user.img))}}" class="user-image" alt="User Image" />
                   {% else %}
                     <img src="{{url_for('static', filename='upload/profile/default.png')}}" class="user-image" alt="User Image" />
                   {% endif %}
                   <!-- hidden-xs hides the username on small devices so only the image appears. -->
-                  <span class="hidden-xs">{{member.user.nickname}}</span>
+                  <span class="hidden-xs">{{current_user.nickname}}</span>
                 </a>
                 <ul class="dropdown-menu">
                   <!-- The user image in the menu -->
-                  <li class="user-header" style="background: url(/static/upload/{{member.cover or 'cover/cover_default.gif'}}) no-repeat center center; border:5px solid #f9f9f9;">
-                    {% if member.img and member.img != "" %}
-                      <img src="{{url_for('static', filename=('upload/' + member.img))}}" class="img-circle" alt="User Image" />
+                  <li class="user-header" style="background: url(/static/upload/{{current_user.cover or 'cover/cover_default.gif'}}) no-repeat center center; border:5px solid #f9f9f9;">
+                    {% if current_user.img and current_user.img != "" %}
+                      <img src="{{url_for('static', filename=('upload/' + current_user.img))}}" class="img-circle" alt="User Image" />
                     {% else %}
                       <img src="{{url_for('static', filename='upload/profile/default.png')}}" class="img-circle" alt="User Image" />
                     {% endif %}
                     <p style="width:200px; border-radius:5px; padding:2px 0; margin:10px auto; color:white; font-weight:900; text-shadow: 1px 1px 2px black, 0 0 25px black, 0 0 5px black;">
-                      {{member.user.nickname}} - {{member.cycle}}기
-                      <small>{{member.stem_department.name}}, {{member.department.name}}</small>
+                      {{current_user.nickname}} - {{current_user.cycle}}기
+                      <small>{{current_user.deptstem.name}}, {{current_user.deptuniv.name}}</small>
                     </p>
                   </li>
                   <!-- Menu Body -->
@@ -198,18 +259,19 @@
                     </div>
                   </li>-->
                   <!-- Menu Footer-->
-                  <li class="user-footer">
-                    <div class="pull-left">
-                      <a href="/stem/people/{{current_user.member.id}}" class="btn btn-default btn-flat">Profile</a>
-                    </div>
-                    <div class="pull-right">
-                      <a href="/logout" class="btn btn-default btn-flat">Sign out</a>
+                  <li class="user-footer" style="text-align:center;">
+                    <div class="btn-group btn-group">
+                      <a href="/stem/people/{{current_user.id}}" class="btn btn-default btn-flat">프로필</a>
+                    
+                      <a href="/stem/board/personal/{{current_user.id}}" class="btn btn-default btn-flat">개인게시판</a>
+                    
+                      <a href="/logout" class="btn btn-default btn-flat">로그아웃</a>
                     </div>
                   </li>
                 </ul>
               </li>
               <!-- Control Sidebar Toggle Button -->
-              <li>
+              <li style="display:none;">
                 <a href="#" data-toggle="control-sidebar"><i class="fa fa-gears"></i></a>
               </li>
             </ul>
@@ -225,25 +287,26 @@
           <!-- Sidebar user panel (optional) -->
           <div class="user-panel">
             <div class="pull-left image">
-              {% if member.img and member.img != "" %}
-                <img src="{{url_for('static', filename=('upload/' + member.img))}}" class="img-circle" alt="User Image" />
+              {% if current_user.img and current_user.img != "" %}
+                <img src="{{url_for('static', filename=('upload/' + current_user.img))}}" class="img-circle" alt="User Image" />
               {% else %}
                 <img src="{{url_for('static', filename='upload/profile/default.png')}}" class="img-circle" alt="User Image" />
               {% endif %}
             </div>
             <div class="pull-left info">
-              <p>{{member.user.nickname}}</p>
+              <p>{{current_user.nickname}}</p>
               <!-- Status -->
-              <a href="#"><i class="fa fa-circle text-success"></i> {{member.cycle}}기, {{member.stem_department.name}}</a>
+              <a href="#"><i class="fa fa-circle text-success"></i> {{current_user.cycle}}기, {{current_user.deptstem.name}}</a>
             </div>
           </div>
 
           <!-- search form (Optional) -->
-          <form action="#" method="get" class="sidebar-form">
+          <form action="{{url_for('.search')}}" method="get" class="sidebar-form">
             <div class="input-group">
-              <input type="text" name="q" class="form-control" placeholder="Search..."/>
+              <input type="text" name="q" class="form-control" placeholder="Search ..."
+              {%if search_string %}value="{{search_string}}"{% endif %} />
               <span class="input-group-btn">
-                <button type='submit' name='search' id='search-btn' class="btn btn-flat"><i class="fa fa-search"></i></button>
+                <button type='submit' id='search-btn' class="btn btn-flat"><i class="fa fa-search"></i></button>
               </span>
             </div>
           </form>
@@ -259,35 +322,49 @@
               <ul class="treeview-menu">
                 <li><a href="/stem/mms/completion_state"><i class='fa fa-angle-double-right'></i> 이수 현황/내역</a></li>
                 <li><a href="/stem/mms/completion_criterion"><i class='fa fa-angle-double-right'></i> 이수 기준서</a></li>
+                {% if current_user.id in current.page_manager_ids() %}
                 <li><a href="/stem/mms/mgmt/completion_record"><i class='fa fa-angle-double-right'></i> 출결 및 이수 관리</a></li>
-                <li><a href="/stem/mms/active"><i class='fa fa-angle-double-right'></i> Active 회원 신청</a></li>
-                {% if current_user.member in manager %}
+                {% endif %}
+                <li><a href="/stem/mms/active"><i class='fa fa-angle-double-right'></i> Active 회원 
+                {% if current.isapply() %}신청{% else %}목록{% endif %}
+                </a></li>
+                {% if current_user.id in current.page_manager_ids() %}
                 <li><a href="/stem/mms/mgmt/active_registration"><i class='fa fa-angle-double-right'></i> 회원등록 관리</a></li>
-
                 {% endif %}
               </ul>
             </li>
             <li class="treeview">
               <a href="#"><i class='fa fa-users'></i> <span>STEM People</span> <i class="fa fa-angle-left pull-right"></i></a>
               <ul class="treeview-menu">
-                {% for n in range(7) %}
+                {% for n in range(current.cycle) %}
                 <li><a href="/stem/people/_{{n+1}}"><i class='fa fa-angle-double-right'></i> {{n+1}}기 - {{n+2010}}년</a></li>
                 {% endfor %}
               </ul>
             </li>
             <li><a href="/stem/calendar"><i class='fa fa-calendar'></i> <span>Calendar</span></a></li>
-            <li><a href="/stem/suggestion"><i class='fa fa-hand-o-up'></i> <span>STEMemo</span></a></li>
-            <!--<li><a href="/stem/milestone"><i class='fa fa-road'></i> <span>마일스톤</span></a></li>-->
-            <!--<li><a href="/stem/issue"><i class='fa fa-list-ul'></i> <span>일거리</span></a></li>-->
+            <li><a href="/stem/stememo"><i class='fa fa-hand-o-up'></i> <span>STEMemo</span></a></li>
 
-            <!--<li><a href="/stem/tag"><i class='fa fa-tag'></i> <span>태그검색</span></a></li>-->
             <li class="treeview" id="boards">
               <a href="/stem/board"><i class='fa fa-list-ul'></i> <span>Board</span> <i class="fa fa-angle-left pull-right"></i></a>
               <ul class="treeview-menu">
-                <li><a href="/stem/board">게시판 목록</a></li>
-                {% for tag in boards %}
-                <li><a href="/stem/board/{{tag.id}}"><i class='fa fa-angle-double-right'></i> {{tag.title}}</a></li>
+                <li><a href="/stem/board">전체 게시판 목록</a></li>
+                {% for board in prior_boards %}
+                <li><a href="/stem/board/{{board.id}}"><i class='fa fa-angle-double-right'></i> {{board.title}}</a></li>
                 {% endfor %}
+                {% for group in group_lists %}
+                <li><a href="/stem/board?gid={{group.id}}"><i class='fa fa-angle-double-right'></i> {{group.name}}&nbsp;&nbsp;<i class='fa fa-angle-down'></i></a></li>
+                {% endfor %}
+              </ul>
+            </li>
+            <li class="treeview">
+              <a href="#"><i class='fa fa-institution'></i> <span>Conference Record</span> <i class="fa fa-angle-left pull-right"></i></a>
+              <ul class="treeview-menu">
+              {% if current_user in current.active('actives') %}
+                <li><a href="/stem/record/make"><i class='fa fa-angle-double-right'></i>신규 회의 생성</a></li>
+                <li><a href="/stem/record/write"><i class='fa fa-angle-double-right'></i>회의록 작성/수정</a></li>
+              {% endif %}
+                <li><a href="/stem/record"><i class='fa fa-angle-double-right'></i>회의록 열람/검색</a></li>
+              
               </ul>
             </li>
             <li class="treeview">
@@ -337,7 +414,7 @@
       </footer>
       
       <!-- Control Sidebar -->      
-      <aside class="control-sidebar control-sidebar-dark">                
+      <aside class="control-sidebar control-sidebar-dark" style="display:none;">
         <!-- Create the tabs -->
         <ul class="nav nav-tabs nav-justified control-sidebar-tabs">
           <li class="active"><a href="#control-sidebar-home-tab" data-toggle="tab"><i class="fa fa-home"></i></a></li>
@@ -426,9 +503,189 @@ $(".date").each(function() {
     var timestamp = moment.utc($(this).attr('data-timestamp')*1000);
     $(this).text(timestamp.local().format($(this).attr('data-time-format')));
 });
+
+$('li.dropdown.messages-menu a').on('click', function (event) {
+    $(this).parent().toggleClass('open');
+
+});
+
+$('body').on('click', function (e) {
+
+    if (!$('li.dropdown.messages-menu').is(e.target) 
+        && $('li.dropdown.messages-menu').has(e.target).length === 0 
+        && $('.open').has(e.target).length === 0
+    ) {
+        $('li.dropdown.messages-menu').removeClass('open');
+    }
+    if(/noteresponse/.test($(e.target).parent().attr('class'))) {
+      $('li.dropdown.messages-menu').addClass('open');
+    }
+});
+
+$(".opennote").click(function(){
+    var body = $(this).next();
+    if( body.is(":visible") ){
+        body.slideUp();
+    }else{
+        $(".opennote").not(this).next().slideUp();
+        body.slideDown();
+    }
+
+});
+
+$(".notebody_received").click(function(){
+  var id = $(this).parents('li').attr('recv_id');
+  var notebody = $(this);
+    var white = notebody.css('white-space');
+  if( white == 'nowrap') {
+  	    jQuery.ajax({
+          url: '/stem/api/note/read',
+          type: 'POST',
+          data: "id="+id+"&recv_read=1",
+        });
+    notebody.css('white-space','normal');
+    notebody.after('<p class="noteresponse pull-right"><br>\
+      <span class="noteresponse" onClick="NewNote('+id+');"> 답장</span>&nbsp;&nbsp;&nbsp;&nbsp;\
+      <span onClick="DelNote('+id+', 0);"> 삭제</span> \
+      </p>');
+  }else{
+    notebody.css('white-space','nowrap');
+    notebody.next().remove();
+  }
+});
+
+$('.notebody_sent').click(function(){
+  var id = $(this).parents('li').attr('sent_id');
+  var notebody = $(this);
+  var white = notebody.css('white-space');
+  if( white == 'nowrap') {
+    notebody.css('white-space','normal');
+    notebody.after('<p class="noteresponse pull-right"><br>\
+      <span class="noteresponse" onClick="DelNote('+id+', 1); return false;"> 삭제</span> \
+      </p>');
+  }else{
+    notebody.css('white-space','nowrap');
+    notebody.next().remove();
+  }
+});
+
+function NewNote(id) {
+  $(".opennote").not(".opennote:eq(2)").next().slideUp();
+  $(".opennote:eq(2)").next().slideDown();
+  $('li.dropdown.messages-menu').removeClass('open').addClass('open');
+  $('input[name=receiver]').val($('#senderid-'+id).text());
+}
+
+function DelNote(id, str) {
+
+    if (str==1) { /// str == 1 --> sent_del from 0 to 1
+      jQuery.ajax({
+          url: '/stem/api/note/delete',
+          type: 'POST',
+          data: "id="+id+"&sent_del=1",
+          success: function(data) {
+              $('.note_sent[sent_id='+id+']').remove();
+              var num = $('.snotelen').eq(0).text();
+              num = Number(num) - 1;
+              $('.snotelen').text(num.toString());
+          }
+        });
+    } else if (str==0) { /// str == 0 --> recv_del from 0 to 1
+      jQuery.ajax({
+          url: '/stem/api/note/delete',
+          type: 'POST',
+          data: "id="+id+"&recv_del=1",
+          success: function(data) {
+              $('.note_received[recv_id='+id+']').remove();
+              var num = $('.rnotelen').eq(0).text();
+              num = Number(num) - 1;
+              $('.rnotelen').text(num.toString());
+          }
+        });
+    } else {
+      alert('오류가 발생하였습니다.');
+      return;
+    }
+
+}
+
+$('#notesend').submit(function(){
+  	var receiver = $('input[name=receiver]').val();
+  	var sent_id = $('input[name=sent_id]').val();
+  	var body = $('#notebody_write').val();
+  	if ($('#sendmail').is(':checked')) {
+  		var sendmail = 1;
+  	} else { var sendmail = 0; };
+  	body = body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      if ($('#notebody_write').val() == '') {
+        alert('빈 쪽지를 보낼 수 없습니다.');
+        return;
+      } else {
+      jQuery.ajax({
+          url: '/stem/api/note/make',
+          type: 'POST',
+          data: {
+		      receiver: receiver,
+		      sent_id: sent_id,
+		      body: body,
+		      sendmail: sendmail
+		  },
+          success: function(data) {
+          	alert(data[0]);
+            $('input[name=receiver]').val('');
+            $('#notebody_write').val('');
+
+            var num = $('.snotelen').eq(0).text();
+            num = Number(num) + 1;
+            $('.snotelen').text(num.toString());
+
+      			$(".opennote").not(".opennote:eq(1)").next().slideUp();
+      			$(".opennote:eq(1)").next().slideDown();
+
+      			$("#snotes_menu").prepend('<li sent_id="'+data[1]+'" class="note_sent"><!-- start message -->\
+                              <a> \
+                                <div class="pull-left" style="width:40px;">\
+                                  <!-- User Image -->\
+                                  <img src="/static/upload/'+data[2]+'" class="img-circle" alt="User Image"/>\
+                                </div>\
+                                <!-- Message title and timestamp -->\
+                                <h4>\
+                                  '+data[3]+'<span style="font-size:10px;">('+data[4]+')\
+                                  <i class="fa fa-paper-plane-o"></i></span>\
+                                  <small><i class="fa fa-clock-o"></i> '+data[5]+'</small>\
+                                </h4>\
+                                <!-- The message -->\
+                                <p class="notebody_sent" onClick="sentOpen('+data[1]+')" style="overflow:hidden; text-overflow:ellipsis; word-break: break-all; white-space:nowrap;">'+data[6]+'</p>\
+                              </a>\
+                            </li><!-- end message -->');
+          },
+          error: function(data) {
+            alert('쪽지를 보낼 수 없습니다. ID를 다시 한 번 확인해주세요.');
+            $('input[name=receiver]').val('');
+            $('input[name=receiver]').focus();
+          }
+        });
+    }
+});
+
+function sentOpen(sent_id) {
+  var notebody = $('li[sent_id='+sent_id+'] > a > p[class=notebody_sent]')
+  var white = notebody.css('white-space');
+  if( white == 'nowrap') {
+    notebody.css('white-space','normal');
+    notebody.after('<p class="noteresponse pull-right"><br>\
+      <span class="noteresponse" onClick="DelNote('+sent_id+', 1); return false;"> 삭제</span> \
+      </p>');
+  }else{
+    notebody.css('white-space','nowrap');
+    notebody.next().remove();
+  }
+
+}
+
 </script>
 {% block scripts %}
-    {% endblock %}
+{% endblock %}
     <!-- Optionally, you can add Slimscroll and FastClick plugins.
           Both of these plugins are recommended to enhance the
           user experience. Slimscroll is required when using the

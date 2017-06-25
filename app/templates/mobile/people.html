@@ -5,7 +5,8 @@
 <div id="memberlist" ng-app="stemApp" ng-controller="memberList" style="visibility:hidden;">
 	<div class="members" style="text-align:center;" ng-view>
 	    <div class="form-group" style="text-align:center;">
-        <select name="cycle" class="form-control" ng-init="searchText.cycle = searchText.cycle || '7'" ng-model="searchText.cycle" style="width:130px; display:inline-block;">
+        <select name="cycle" class="form-control" ng-init="searchText.cycle = searchText.cycle || '8'" ng-model="searchText.cycle" style="width:130px; display:inline-block;">
+        <option value='8' style="text-align:center;">8기 - 2017년</option>        
         <option value='7' style="text-align:center;">7기 - 2016년</option>
         <option value='6' style="text-align:center;">6기 - 2015년</option>
         <option value='5' style="text-align:center;">5기 - 2014년</option>
@@ -22,7 +23,7 @@
             			<img class="member-picture-thumb" src="/static/upload/{[ mem.img || 'profile/default.png']}">
             		</div>
             	</div>
-            	<h5>{[mem.user.nickname]}</h5>
+            	<h5>{[mem.nickname]}</h5>
             </div>
         </div>
 	</div>
@@ -32,9 +33,9 @@
 				<img class="card-cover" src="/static/upload/{[members[pIndex].cover || 'cover/cover_default.gif']}">
 			</div>
 			<div class="card-desc" style="max-height:300px; overflow-y:scroll;">
-				<h4 class="card-member-name">{[members[pIndex].user.nickname]}</h4>
-				<h6 class="card-member-dept">{[members[pIndex].cycle]}기 {[members[pIndex].stem_dept]}, {[members[pIndex].dept]}</h6>
-				<p class="card-member-description">{[members[pIndex].cv]}</p>
+				<h4 class="card-member-name">{[members[pIndex].nickname]}</h4>
+				<h6 class="card-member-deptuniv">{[members[pIndex].cycle]}기 {[members[pIndex].deptstem]}, {[members[pIndex].deptuniv]}</h6>
+				<p class="card-member-description">{[members[pIndex].cvpublic]}</p>
 				<a class="card-member-social-link" href="{[members[pIndex].social]}">{[members[pIndex].social.split('://')[1]]}</a>
 			</div>
 		</div>

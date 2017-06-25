@@ -10,4 +10,5 @@ app/mail_config.py
 
 uwsgi.ini
 client_secret.json
+
 members.csv

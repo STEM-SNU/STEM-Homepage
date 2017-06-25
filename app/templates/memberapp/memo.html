@@ -1,0 +1,192 @@
+{% extends "memberapp/base.html" %}
+
+{% macro pagination() -%}
+<div class="row">
+  <div class="col-xs-12 text-center">
+    <ul class="pagination">
+    {% if page > 4 %}
+        <li class="{% if 1 == page %}active{%endif%}"><a href="/stem/stememo/1">1</a></li>
+        <li class="disabled"><a style="background-color:transparent; border:none;">…</a></li>
+      {% if maxpage <= page + 2 %}
+        {% for i in range(maxpage - 5, maxpage) %}
+        <li class="{% if i+1 == page %}active{%endif%}"><a href="/stem/stememo/{{i+1}}">{{i+1}}</a></li>
+        {% endfor %}
+      {% else %}
+        {% for i in range(page - 3, page + 2) %}
+        <li class="{% if i+1 == page %}active{%endif%}"><a href="/stem/stememo/{{i+1}}">{{i+1}}</a></li>
+        {% endfor %}
+        <li class="disabled"><a style="background-color:transparent; border:none;">…</a></li>
+        <li class="{% if maxpage == page %}active{%endif%}"><a href="/stem/stememo/{{maxpage}}">{{maxpage}}</a></li>
+      {% endif %}
+    {% else %}
+      {% if maxpage > 5 %}
+        {% for i in range(0, 5) %}
+        <li class="{% if i+1 == page %}active{%endif%}"><a href="/stem/stememo/{{i+1}}">{{i+1}}</a></li>
+        {% endfor %}
+        <li class="disabled"><a style="background-color:transparent; border:none;">…</a></li>
+        <li class="{% if maxpage == page %}active{%endif%}"><a href="/stem/stememo/{{maxpage}}">{{maxpage}}</a></li>
+      {% else %}
+        {% for i in range(0, maxpage) %}
+        <li class="{% if i+1 == page %}active{%endif%}"><a href="/stem/stememo/{{i+1}}">{{i+1}}</a></li>
+        {% endfor %}
+      {%endif%}       
+    {% endif %}
+    </ul>
+  </div>
+</div>
+{% endmacro %}
+
+{% block content %}
+<!-- Content Header (Page header) -->
+<section class="content-header">
+  <h1>
+    STEMemo 
+    <small>메모</small>
+  </h1>
+  <ol class="breadcrumb">
+    <li><a href="/stem"><i class="fa fa-hand-o-up"></i> Home</a></li>
+    <li class="active">STEMemo</li>
+  </ol>
+</section>
+
+<!-- Main content -->
+<section class="content">
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="box">
+              <div class="box-header with-border">
+                <h3 class="box-title">{{current_user.nicktitle}} 회원님의 이야기를 들려주세요. <small>총 {{totalNum}}개의 게시물이 있습니다.</small></h3>
+              </div><!-- /.box-header -->
+              <div class="box-body">
+                <div class="form-group">
+                  <label>제목&nbsp;&nbsp;&nbsp; <span id="titlelen">0 / 50</span></label>
+                  <input class="form-control" type="text" placeholder="제목 (50자 제한)" id="memo-title">
+                </div>
+                <div class="form-group">
+                  <label>내용&nbsp;&nbsp;&nbsp; <span id="contentlen">0 / 300</span></label>
+                  <textarea class="form-control" placeholder="내용 (300자 제한)" rows="3" id="memo-body"></textarea>
+                </div>
+                <div class="form-group">
+                <button onclick="addMemo()" type="add" class="btn btn-primary pull-right">등록</button>
+                </div>
+              </div><!-- /.box-body -->
+            </div><!-- /.box -->
+        </div>
+    </div>
+
+<link href="{{url_for('static', filename='css/memberapp_timelineonly.css')}}" rel="stylesheet" type="text/css" />
+<div class="row">
+  <div class="col-md-10 col-md-offset-1">
+      {% for memo in memoes %}
+    <div class="qa-message-list" id="wallmessages">
+            <div class="message-item" id="m16">
+            <div class="message-inner">
+              <div class="message-head clearfix">
+                <div class="avatar pull-left" style="margin:0 15px 0 5px;"><a href="/stem/people/{{memo.writer_id}}"><img class="img-rounded" src="/static/upload/{{ memo.writer.img or 'profile/default.png' }}"></a></div>
+                <div class="user-detail">
+                  <h5 class="handle"><small>[#{{ memo.id }}]</small> {% if not memo.title %} <span style="color:rgb(230,230,230);">제목 없음</span> {% else %} {{ memo.title }} {% endif %}
+                  </h5>
+                  <div class="post-meta">
+                    <div class="asker-meta">
+                      <span class="qa-message-what"></span>
+                      <span class="qa-message-when">
+                        <span class="qa-message-when-data">{{ memo.timestamp.strftime('%Y.%m.%d %H:%M') }}</span>
+                      </span>
+                      <span class="qa-message-who">
+                        <span class="qa-message-who-pad">by </span>
+                        <span class="qa-message-who-data"><a href="/stem/people/{{memo.writer.id}}">{{ memo.writer.nickname }}</a>{% if memo.writer == current_user %} <i onClick="deleteMemo( {{memo.id}} )" style="color:red;" class="fa fa-times"></i> {% endif %}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="qa-message-content">
+              {% if not memo.body %}
+              <span style="color:rgb(230,230,230);">내용 없음</span>
+              {% else %}
+              {{ memo.body | safe}}
+              {% endif %}              
+              </div>
+          </div></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>          
+{{ pagination() }}
+
+
+
+</section><!-- /.content -->
+{% endblock %}
+
+{% block scripts %}
+<script type="text/javascript">
+function deleteMemo(memoid) {
+  var y = confirm("글을 삭제합니다.")
+  if (y==true) {
+  $.ajax({
+    url: "/stem/api/memo/delete",
+    type:"POST",
+    data: {
+        id: memoid
+    },
+    success: function(data) {
+      location.reload();
+    },
+    error: function() {
+      alert('오류가 발생했습니다.');
+    }
+  })} else return;
+}
+
+$(document).ready(function(){
+  $('#memo-body').on('keyup',function(){
+    if($(this).val().length > 300) {
+      alert("300자를 초과하였습니다.");
+      $(this).val($(this).val().substring(0,300));
+    }
+    $("#contentlen").html($(this).val().length + " / 300");
+  })
+  $('#memo-title').on('keyup',function(){
+    if($(this).val().length > 50) {
+      alert("50자를 초과하였습니다.");
+      $(this).val($(this).val().substring(0,50));
+    }
+    $("#titlelen").html($(this).val().length + " / 50");
+  })
+})
+
+function addMemo() {
+  var title = $("#memo-title").val();
+  var body = $("#memo-body").val();
+
+  if(title=='' && body==''){
+    alert('내용을 입력하여주세요.');
+    return;
+  }  
+
+  $("#memo-title").val('');
+  $("#memo-body").val('');
+
+  body = body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')
+
+  $.ajax({
+    url: "/stem/api/memo/add",
+    type:"POST",
+    data: {
+        title: title,
+        body: body
+    },
+    success: function(data) {
+      location.replace('/stem/stememo/1');
+    },
+    error: function() {
+      alert('오류가 발생했습니다.');
+      $("#memo-title").val(title);
+      $("#memo-body").val(body);
+    }
+  });
+}
+</script>
+{% endblock %}

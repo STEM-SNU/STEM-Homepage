@@ -1,5 +1,4 @@
 {% extends "memberapp/base.html" %}
-{% import "task_elements.html" as elements with context %}
 {% block content %}
  <section class="content-header">
   <h1>
@@ -9,7 +8,7 @@
   <ol class="breadcrumb">
     <li><a href="/stem"><i class="fa fa-list-ul"></i> Home</a></li>
     <li><a href="/stem/board">Board</a></li>
-    <li class="active"><a href="/stem/board/{{tag.id}}">{{tag.title}}</a></li>
+    <li class="active"><a href="/stem/board/{{board.id}}">{{board.title}}</a></li>
   </ol>
 </section>
 
@@ -66,7 +65,7 @@
 {% block scripts %}
 <script src="{{url_for('static', filename='adminLTE/plugins/datatables/jquery.dataTables.min.js')}}" type="text/javascript"></script>
 <script src="{{url_for('static', filename='adminLTE/plugins/datatables/dataTables.bootstrap.min.js')}}" type="text/javascript"></script>
-<script src="https://cdn.ckeditor.com/4.4.3/standard/ckeditor.js" type="text/javascript"></script>
+<script src="https://cdn.ckeditor.com/4.6.2/standard/ckeditor.js" type="text/javascript"></script>
 
 <script type="text/javascript">
 var editor = CKEDITOR.replace('body',
@@ -91,9 +90,9 @@ function sendPost() {
     return;
   }
   var data = new FormData();
-  data.set('tag_id',{{tag.id}});
-  data.set('title',$('#title').val());
-  data.set('body',editor.getData());
+  data.append('boardmember_id',{{board.id}});
+  data.append('title',$('#title').val());
+  data.append('body',editor.getData());
   var files = $('#files')[0].files;
   for (var i = 0; i < files.length; i++) {
     data.append('files',files[i]);
@@ -104,7 +103,7 @@ function sendPost() {
     data: data,
     processData: false,
     contentType: false,
-    success: function() {location.href = '/stem/board/{{tag.id}}/{{post.id}}';},
+    success: function() {location.href = '/stem/board/{{board.id}}/{{post.id}}';},
     error: function() {alert('게시글 수정 중 오류가 발생했습니다.');}
   });
 }

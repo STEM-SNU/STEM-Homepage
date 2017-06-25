@@ -18,11 +18,9 @@
     <div><a {% if sNum == 3 %} class="btn btn-primary" {% else %} class="btn btn-default" {% endif %} style="padding:5px;" href="/sub/4-3">Sponsors</a></div>
 	{% elif mNum == 5 %}
     <div><a {% if sNum == 1 %} class="btn btn-primary" {% else %} class="btn btn-default" {% endif %} style="padding:5px;" href="/sub/5-1">Notice</a></div>
-    <div><a {% if sNum == 2 %} class="btn btn-primary" {% else %} class="btn btn-default" {% endif %} style="padding:5px;" href="/sub/5-2">Q &amp; A</a></div>
+    <div><a {% if sNum == 2 %} class="btn btn-primary" {% else %} class="btn btn-default" {% endif %} style="padding:5px;" href="/sub/5-2">News</a></div>
     <div><a {% if sNum == 4 %} class="btn btn-primary" {% else %} class="btn btn-default" {% endif %} style="padding:5px;" href="/sub/5-4">자유게시판</a></div>
-    {% if current_user.member %}
-    <div><a {% if sNum == 5 %} class="btn btn-primary" {% else %} class="btn btn-default" {% endif %} style="padding:5px;" href="/sub/5-5">회원게시판</a></div>
-    {% endif %}
+    <div><a {% if sNum == 5 %} class="btn btn-primary" {% else %} class="btn btn-default" {% endif %} style="padding:5px;" href="/sub/5-5">Q &amp; A</a></div>
     {% endif %}
 </div><hr>
 </div>

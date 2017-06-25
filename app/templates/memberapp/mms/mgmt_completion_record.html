@@ -1,5 +1,6 @@
 {% extends "memberapp/base.html" %}
 {% block content %}
+<link href="{{url_for('static', filename='select2/css/select2.min.css')}}" rel="stylesheet" />
 <section class="content-header">
     <h1>
         Member Management System <small>출결 및 이수 관리</small>
@@ -11,17 +12,334 @@
 </section>
 
 <section class="content">
+
 <div class="row">
-      <div class="col-xs-12">
-          <div class="box">
+
+{% if year==recentyear and semester==recentsemester %}
+  <div class="members col-xs-12">
+      <div class="box">
+        <div class="box-header detailopen">
+          <h3 class="box-title">Active 이수표</h3>
+        </div>
+      <div id="completionmgmt" class="box-body table-responsive no-padding" style="display:none;">
+        </div>
+        </div>
+    <span style="position:absolute; top:12px; right:25px; color:gray;" class="activeloading pull-right">(로딩 중...)</span>
+  </div>
+{% endif %}
+
+    <div class="col-xs-12">
+        <div class="box">
             <div class="box-header with-border">
-              <h3 class="box-title">Under Construction...</h3>
+                <h3 class="box-title">{{quarter.description}} 활동</h3>
             </div><!-- /.box-header -->
             <div class="box-body">
-            <p>Complete Soon!!</p>
+            <p>
+            {% for activity in quarter.activities %}
+            <div class="btn btn-block btn-lg btn-default detailopen" style="margin:10px 0;">{{activity.name}}</div>
+            <div style="text-align:center; display:none;">
+                        <div style="display:block;">
+                            <ul class="list-group" style="width:150px; margin:0 auto;">
+                                <li class="list-group-item" style="text-align:center;" onClick="AddMemberAct({{activity.id}});">
+                                    <i class="fa fa-plus"></i>&nbsp;&nbsp;Add members
+                                </li>
+                            </ul>
+                        </div>
+            {% for member in activity.members %}
+                 {% for score in scoretable %}
+                    {% if (score.member_id == member.id) and (score.activity_id == activity.id) %}
+                        <div id="activity-{{activity.id}}-{{member.id}}" style="display:inline-block;">
+                            <ul class="list-group" style="margin:10px 0;">
+                        <li class="list-group-item" style="height:25px; text-align:center; padding:0;"><b>{{member.nickname}}</b> ({{member.cycle}}기) <i class="fa fa-times" onClick="DeleteMemberAct({{activity.id}},{{member.id}})"></i></li>
+                        <li class="list-group-item" style="text-align:center;"><form>
+                        <!--select type="text" name="score"-->
+                        {% if not activity.totalscore == 0 %}
+                        {% for n in range(activity.totalscore+1) %}
+                          <input type="radio" id="radio-{{member.id}}-act-{{activity.id}}-{{n}}" name="type" value="{{n}}" {%if n == score.score%}checked{%endif%}>
+                             <label onClick="ChangeScore({{member.id}},{{activity.id}},{{n}});" for="radio-{{member.id}}-act-{{activity.id}}-{{n}}">{{n}}점</label>
+                        {% endfor %}
+                        {% else %}
+                        {% for n in range(4) %}
+                          <input type="radio" id="radio-{{member.id}}-act-{{activity.id}}-{{n}}" name="type" value="{{n}}" {%if n == score.score%}checked{%endif%}>
+                             <label onClick="ChangeScore({{member.id}},{{activity.id}},{{n}});" for="radio-{{member.id}}-act-{{activity.id}}-{{n}}">{{n}}점</label>
+                        {% endfor %}
+                        {% endif %}
+                        <!--/select-->
+                        </form></li>
+                            </ul>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
             </div>
+            {% endfor %}</p>
             </div>
+        </div>
+    </div>
+
+    <div class="col-xs-12">
+        <div class="box">
+            <div class="box-header with-border">
+                <h3 class="box-title">{{quarter.description}} 회의</h3>
+            </div><!-- /.box-header -->
+            <div class="box-body">
+            <p>
+            {% for conference in quarter.conferences %}
+            <div class="btn btn-block btn-lg btn-default detailopen" style="margin:10px 0;">{{conference.name}}</div>
+            <div style="text-align:center; display:none;">
+                        <div style="display:block;">
+                            <ul class="list-group" style="width:150px; margin:0 auto;">
+                                <li class="list-group-item" style="text-align:center;" onClick="AddMemberConf({{conference.id}});">
+                                    <i class="fa fa-plus"></i>&nbsp;&nbsp;Add members
+                                </li>
+                            </ul>
+                        </div>
+            {% for member in conference.members %}
+                 {% for state in statetable %}
+                    {% if (state.member_id == member.id) and (state.conference_id == conference.id) %}
+                        <div id="conference-{{conference.id}}-{{member.id}}" style="display:inline-block;">
+                            <ul class="list-group" style="margin:10px 0;">
+                        <li class="list-group-item" style="height:25px; text-align:center; padding:0;"><b>{{member.nickname}}</b> ({{member.cycle}}기) <i class="fa fa-times" onClick="DeleteMemberConf({{conference.id}},'{{member.id}}')"></i></li>
+                        <form>
+                        <li class="list-group-item" style="text-align:center;">
+                          <input type="radio" id="radio-{{member.id}}-con-{{conference.id}}-0" name="type" value="0" {%if 0 == state.state%}checked{%endif%}>
+                             <label onClick="ChangeState({{member.id}},{{conference.id}},0);" for="radio-{{member.id}}-con-{{conference.id}}-0">참석</label>
+                          <input type="radio" id="radio-{{member.id}}-con-{{conference.id}}-1" name="type" value="1" {%if 1 == state.state%}checked{%endif%}>
+                             <label onClick="ChangeState({{member.id}},{{conference.id}},1);" for="radio-{{member.id}}-con-{{conference.id}}-1">부분참</label>
+                          <input type="radio" id="radio-{{member.id}}-con-{{conference.id}}-2" name="type" value="2" {%if 2 == state.state%}checked{%endif%}>
+                             <label onClick="ChangeState({{member.id}},{{conference.id}},2);" for="radio-{{member.id}}-con-{{conference.id}}-2">공결</label>
+                          <input type="radio" id="radio-{{member.id}}-con-{{conference.id}}-4" name="type" value="4" {%if 4 == state.state%}checked{%endif%}>
+                             <label onClick="ChangeState({{member.id}},{{conference.id}},4);" for="radio-{{member.id}}-con-{{conference.id}}-4">결석</label>
+                             <br><br>
+                            <input type="radio" id="radio-{{member.id}}-con-{{conference.id}}-3" name="type" value="3" {%if 3 == state.state%}checked{%endif%}>
+                             <label onClick="ChangeState({{member.id}},{{conference.id}},3);" for="radio-{{member.id}}-con-{{conference.id}}-3">공결+회의록X</label>
+                          <input type="radio" id="radio-{{member.id}}-con-{{conference.id}}-5" name="type" value="5" {%if 5 == state.state%}checked{%endif%}>
+                             <label onClick="ChangeState({{member.id}},{{conference.id}},5);" for="radio-{{member.id}}-con-{{conference.id}}-5">결석+회의록X</label>
+                        </li>
+                        </form>
+                            </ul>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
             </div>
+            {% endfor %}</p>
+            </div>
+        </div>
+    </div>
 </div>
+
+    <select name="" class="form-control" onChange="navChange3(this); return true;">
+    <option value='' selected disabled>분기 이동</option>
+    {% for quarter in quarters %}
+    <option value='/stem/mms/mgmt/completion_record/{{quarter.year}}/{{quarter.semester}}'>{{quarter.description}}</option>
+    {% endfor %}
+    </select>
+    <script language="javascript">
+    function navChange3(popup) {
+      if (popup.options[popup.selectedIndex].value != "")
+      {
+        window.open(popup.options[popup.selectedIndex].value, '_self');
+        popup.selectedIndex=0;
+      }
+    }
+    </script>
+
+<div class="card-addmemberconf">
+    <div class="box" style="background:white;">
+      <div class="box-header with-border text-center">
+        <h3 style="margin:0;">회의 인원 추가</h3>
+      </div>
+      <div class="box-body">
+        <p class="text-center">회의 참여 인원을 추가합니다. <span style="font-weight:bold; color:blue;" class="listloading">(로딩 중...)</span></p>
+        <input id="conference-id" type="hidden" val="">
+        <select class="memberadd-conference" multiple="multiple" name="member_ids" style="width:100%;">
+        <!--옵션은 AJAX로 비동기방식으로 로딩.-->
+        </select>
+        <div class="nav nav-pills nav-justified text-center" style="padding:10px 0 10px 0;">
+          <button id="AddMemberConf" type="button" class="btn btn-primary">추가</button>
+          <button onClick="CloseModal()" class="btn btn-primary">취소</button>
+        </div>
+
+      </div>
+    </div>
+    <a href="javascript:void(0)" onclick="CloseModal()">
+      <i class="modal-close fa fa-remove pull-right" style="position:absolute; top:5px; right:5px;"></i>
+   </a>
+</div>
+
+<div class="card-addmemberact">
+    <div class="box" style="background:white;">
+      <div class="box-header with-border text-center">
+        <h3 style="margin:0;">활동 인원 추가</h3>
+      </div>
+      <div class="box-body">
+        <p class="text-center">활동 참여 인원을 추가합니다. <span style="font-weight:bold; color:blue;" class="listloading">(로딩 중...)</span></p>
+
+        <input id="activity-id" type="hidden" val="">
+        <select class="memberadd-activity" multiple="multiple" name="member_ids" style="width:100%;">
+        <!--옵션은 AJAX로 비동기방식으로 로딩.-->
+        </select>
+        <div class="nav nav-pills nav-justified text-center" style="padding:10px 0 10px 0;">
+          <button id="AddMemberAct" type="button" class="btn btn-primary">추가</button>
+          <button onClick="CloseModal()" class="btn btn-primary">취소</button>
+        </div>
+
+      </div>
+    </div>
+    <a href="javascript:void(0)" onclick="CloseModal()">
+      <i class="modal-close fa fa-remove pull-right" style="position:absolute; top:5px; right:5px;"></i>
+   </a>
+</div>
+
+
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{url_for('static', filename='js/jquery.easyModal.js')}}"></script>
+<script src="{{url_for('static', filename='select2/js/select2.min.js')}}"></script>
+
+<script>
+jQuery("[class^=card]").easyModal({overlay:0.2});
+jQuery("[class^=memberadd]").select2();
+
+function CloseModal() {
+    jQuery("[class^=card]").trigger('closeModal');
+}
+
+function AddMemberAct(activity_id) {
+    jQuery(".card-addmemberact").trigger('openModal');
+    jQuery("input[id=activity-id]").val(activity_id);
+
+}
+
+function AddMemberConf(conference_id) {
+    jQuery(".card-addmemberconf").trigger('openModal');
+    jQuery("input[id=conference-id]").val(conference_id);
+}
+
+$("#AddMemberConf").click(function() {
+        var conference_id = jQuery("input[id=conference-id]").val()
+        var memberSelections ='';
+        jQuery('.memberadd-conference option').each(function(i) {
+            if (this.selected == true) {
+                memberSelections=memberSelections+this.value+' ';
+            }
+        });
+        jQuery.ajax({
+            url: '/stem/api/quarter/memberconference/add',
+            type: 'POST',
+            data: "conference_id="+conference_id+"&member_ids="+memberSelections,
+            success: function(data) {
+                location.reload();
+            }
+        });
+    });
+
+
+
+$("#AddMemberAct").click(function() {
+        var activity_id = jQuery("input[id=activity-id]").val()
+        var memberSelections ='';
+        jQuery('.memberadd-activity option').each(function(i) {
+            if (this.selected == true) {
+                memberSelections=memberSelections+this.value+' ';
+            }
+        });
+        jQuery.ajax({
+            url: '/stem/api/quarter/memberactivity/add',
+            type: 'POST',
+            data: "activity_id="+activity_id+"&member_ids="+memberSelections,
+            success: function(data) {
+                location.reload();
+            }
+        });
+    });
+
+
+function DeleteMemberConf(conference_id, member_id) {
+    var r = confirm("정말로 삭제하시겠습니까?");
+    if (r) {
+        var confdiv = "#conference-"+conference_id+"-"+member_id 
+        jQuery.ajax({
+            url: "/stem/api/quarter/memberconference/delete",
+            type: "POST",
+            data: "conference_id="+conference_id+"&member_ids="+member_id,
+            success: function(data) {
+                jQuery(confdiv).remove();
+                jQuery("span[class^=activeloading]").html("<div onClick='renew_activeloading()' class='btn btn-xs btn-warning'>변경사항 반영</div>");
+            }
+        });
+    }
+}
+
+function DeleteMemberAct(activity_id, member_id) {
+    var r = confirm("정말로 삭제하시겠습니까?");
+    if (r) {
+        var actdiv = "#activity-"+activity_id+"-"+member_id 
+        jQuery.ajax({
+            url: "/stem/api/quarter/memberactivity/delete",
+            type: "POST",
+            data: "activity_id="+activity_id+"&member_id="+member_id,
+            success: function(data) {
+                jQuery(actdiv).remove();
+                jQuery("span[class^=activeloading]").html("<div onClick='renew_activeloading()' class='btn btn-xs btn-warning'>변경사항 반영</div>");
+            }
+        });
+    }
+}
+
+function ChangeState(member_id,conference_id,state) {
+    jQuery.ajax({
+        url: '/stem/api/quarter/memberconference/update',
+        data : "member_id="+member_id+"&conference_id="+conference_id+"&state="+state,
+        type: 'POST',
+        success: function(data) {
+            jQuery("span[class^=activeloading]").html("<div onClick='renew_activeloading()' class='btn btn-xs btn-warning'>변경사항 반영</div>");
+        }
+        });
+    }
+function ChangeScore(member_id,activity_id,score) {
+    jQuery.ajax({
+        url: '/stem/api/quarter/memberactivity/update',
+        data : "member_id="+member_id+"&activity_id="+activity_id+"&score="+score,
+        type: 'POST',
+        success: function(data) {
+            jQuery("span[class^=activeloading]").html("<div onClick='renew_activeloading()' class='btn btn-xs btn-warning'>변경사항 반영</div>");
+        }
+        });
+    }
+$(document).ready(function(){
+if($(window).width()>=768) { $("[class^=card]").css('width', $(window).width()*0.5)
+} else {$("[class^=card]").css('width', $(window).width()*0.9)};
+$("[class^=memberadd]").load("/stem/mms/mgmt/completion_record/member_addlist", function() {
+    $("span[class=listloading]").html(""); 
+});
+$("#completionmgmt").load("/stem/mms/mgmt/completion_record/member_activelist", function() {
+    $("span[class^=activeloading]").html("클릭 시 열립니다."); 
+});
+}); 
+$(window).resize(function () {
+if($(window).width()>=768) { $("[class^=card]").css('width', $(window).width()*0.5)
+} else {$("[class^=card]").css('width', $(window).width()*0.9)};
+});
+
+function renew_activeloading() {
+    $("span[class^=activeloading]").html("(로딩 중...)");
+    $("#completionmgmt").load("/stem/mms/mgmt/completion_record/member_activelist", function() {
+    $("span[class^=activeloading]").html("클릭 시 열립니다."); 
+});
+}
+
+    $(".detailopen").click(function(){
+
+        var body = $(this).next();
+        if( body.is(":visible") ){
+            body.slideUp();
+        }else{
+            body.slideDown();
+        }
+    });
+</script>
 {% endblock %}

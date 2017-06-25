@@ -22,10 +22,10 @@ stemApp.controller('memberList', function($scope, $timeout) {
     $scope.members = [];
     $scope.pIndex = 0;
     $scope.diviSion = function(mem){
-        return mem.stem_dept === '봉사부' || mem.stem_dept === '학술부' || mem.stem_dept === '대외교류부';
+        return mem.deptstem === '봉사부' || mem.deptstem === '학술부' || mem.deptstem === '대외교류부';
     };
     $scope.preSident = function(mem){
-        return mem.stem_dept === '회장' || mem.stem_dept === '총무';
+        return mem.deptstem === '회장' || mem.deptstem === '총무';
     };
     $scope.openCard = function(id, added) {openCard($scope, id, added);};
     jQuery.ajax({
@@ -56,9 +56,9 @@ stemApp.controller('memberList', function($scope, $timeout) {
     $scope.goNext = function(){goNext($scope);};
     $scope.goPrev = function(){goPrev($scope);};
 
-    $scope.changeDept = function(id, stem_dept){
+    $scope.changeDept = function(id, deptstem){
         jQuery("input[name=memberid]").val(id);
-        jQuery("input[name=stem_department]").val(stem_dept);
+        jQuery("input[name=stem_department]").val(deptstem);
     }
 });
 

@@ -29,8 +29,8 @@
             </div>
           </div>
         </div>
-      <div class="box-body table-responsive no-padding">
-          <table class="table table-hover table-striped text-center activemembers">
+      <div class="box-body table-responsive no-padding activemembers">
+          <table class="table table-hover table-striped text-center">
             <tbody>
             <tr style="background-color:white;">
               <th>부서</th>
@@ -38,10 +38,10 @@
               <th>학과</th>
               <th>비고</th>
             </tr>
-            <tr ng-repeat="mem in members | filter:diviSion | filter:activefilter | orderBy:['stem_dept','-cycle','user.nickname']">
-              <td style="vertical-align:middle;">{[mem.stem_dept]}</td>
-              <td style="vertical-align:middle;"><a href="/stem/people/{[mem.id]}">{[mem.user.nickname]}</a> ({[mem.cycle]}기)</td>
-              <td style="vertical-align:middle;">{[mem.dept]}</td>
+            <tr ng-repeat="mem in members | filter:diviSion | filter:activefilter | orderBy:['deptstem','-cycle','user.nickname']">
+              <td style="vertical-align:middle;">{[mem.deptstem]}</td>
+              <td style="vertical-align:middle;"><a href="/stem/people/{[mem.id]}">{[mem.nickname]}</a> ({[mem.cycle]}기)</td>
+              <td style="vertical-align:middle;">{[mem.deptuniv]}</td>
               <td style="vertical-align:middle;"><div class="btn btn-sm btn-default" ng-click="openCard(mem.id,'1-1')"><i class="fa fa-exchange" aria-hidden="true"></i></div>
               <div class="btn btn-sm btn-default" ng-click="openCard(mem.id,'1-2')"><i class="fa fa-times" aria-hidden="true"></i></div>
               </td>
@@ -51,8 +51,8 @@
                         <h3 style="margin:0;"> Active 회원 ― 부서 변경</h3>
                       </div>
                       <div class="box-body">
-                        <p class="text-center">이름 : <b>{[members[pIndex].user.nickname]}</b></p>
-                        <p class="text-center">현재 부서 : <b>{[members[pIndex].stem_dept]}</b></p>
+                        <p class="text-center">이름 : <b>{[members[pIndex].nickname]}</b></p>
+                        <p class="text-center">현재 부서 : <b>{[members[pIndex].deptstem]}</b></p>
                         <div class="nav nav-pills nav-justified text-center" style="padding:0 0 10px 0;">
                           <button type="submit" form="changeDept" ng-click="changeDept( members[pIndex].id , 3)" class="btn btn-primary">대외교류부</button>
                           <button type="submit" form="changeDept" ng-click="changeDept( members[pIndex].id , 1)" class="btn btn-primary">봉사부</button>
@@ -71,8 +71,8 @@
                         <h3 style="margin:0;"> Active 회원 ― Inactive 전환</h3>
                       </div>
                       <div class="box-body">
-                        <p class="text-center">이름 : <b>{[members[pIndex].user.nickname]}</b></p>
-                        <p class="text-center">현재 부서 : <b>{[members[pIndex].stem_dept]}</b></p>
+                        <p class="text-center">이름 : <b>{[members[pIndex].nickname]}</b></p>
+                        <p class="text-center">현재 부서 : <b>{[members[pIndex].deptstem]}</b></p>
                         <div class="nav nav-pills nav-justified text-center" style="padding:0 0 10px 0;">
                           <button type="submit" form="changeDept" ng-click="changeDept( members[pIndex].id , 7)" class="btn btn-primary">일반회원</button>
                           <button type="submit" form="changeDept" ng-click="changeDept( members[pIndex].id , 8)" class="btn btn-primary">명예회원</button>
@@ -139,10 +139,10 @@
               <th>학과</th>
               <th>비고</th>
             </tr>
-            <tr ng-repeat="mem in members | filter:preSident | filter:presidentfilter | orderBy:['-cycle','-stem_dept']">
-              <td style="vertical-align:middle;">{[mem.stem_dept]}</td>
-              <td style="vertical-align:middle;"><a href="/stem/people/{[mem.id]}">{[mem.user.nickname]}</a> ({[mem.cycle]}기)</td>
-              <td style="vertical-align:middle;">{[mem.dept]}</td>
+            <tr ng-repeat="mem in members | filter:preSident | filter:presidentfilter | orderBy:['-cycle','-deptstem']">
+              <td style="vertical-align:middle;">{[mem.deptstem]}</td>
+              <td style="vertical-align:middle;"><a href="/stem/people/{[mem.id]}">{[mem.nickname]}</a> ({[mem.cycle]}기)</td>
+              <td style="vertical-align:middle;">{[mem.deptuniv]}</td>
               <td style="vertical-align:middle;"><button class="btn btn-sm btn-default disabled"><i class="fa fa-exchange" aria-hidden="true"></i></button></td>
             </tr>
           </tbody></table>
@@ -172,10 +172,10 @@
               <th>학과</th>
               <th>비고</th>
             </tr>
-            <tr ng-repeat="mem in members | filter:{stem_dept: '일반회원'} | filter:generalfilter | orderBy:['-cycle','user.nickname']">
-              <td style="vertical-align:middle;">{[mem.stem_dept]}</td>
-              <td style="vertical-align:middle;"><a href="/stem/people/{[mem.id]}">{[mem.user.nickname]}</a> ({[mem.cycle]}기)</td>
-              <td style="vertical-align:middle;">{[mem.dept]}</td>
+            <tr ng-repeat="mem in members | filter:{deptstem: '일반회원'} | filter:generalfilter | orderBy:['-cycle','user.nickname']">
+              <td style="vertical-align:middle;">{[mem.deptstem]}</td>
+              <td style="vertical-align:middle;"><a href="/stem/people/{[mem.id]}">{[mem.nickname]}</a> ({[mem.cycle]}기)</td>
+              <td style="vertical-align:middle;">{[mem.deptuniv]}</td>
               <td style="vertical-align:middle;"><div class="btn btn-sm btn-default" ng-click="openCard(mem.id,'2-1')"><i class="fa fa-plus" aria-hidden="true"></i></div>
               <div class="btn btn-sm btn-default" ng-click="openCard(mem.id,'2-2')"><i class="fa fa-graduation-cap" aria-hidden="true"></i></div></td>
                 <div class="member-card2-1" style="visibility:hidden;">
@@ -184,8 +184,8 @@
                         <h3 style="margin:0;"> 일반 회원 ― Active 전환</h3>
                       </div>
                       <div class="box-body">
-                        <p class="text-center">이름 : <b>{[members[pIndex].user.nickname]}</b></p>
-                        <p class="text-center">현재 부서 : <b>{[members[pIndex].stem_dept]}</b></p>
+                        <p class="text-center">이름 : <b>{[members[pIndex].nickname]}</b></p>
+                        <p class="text-center">현재 부서 : <b>{[members[pIndex].deptstem]}</b></p>
                         <div class="nav nav-pills nav-justified text-center" style="padding:0 0 10px 0;">
                           <button type="submit" form="changeDept" ng-click="changeDept( members[pIndex].id , 3)" class="btn btn-primary">대외교류부</button>
                           <button type="submit" form="changeDept" ng-click="changeDept( members[pIndex].id , 1)" class="btn btn-primary">봉사부</button>
@@ -204,8 +204,8 @@
                         <h3 style="margin:0;"> Active 회원 ― 활동 수료</h3>
                       </div>
                       <div class="box-body">
-                        <p class="text-center">이름 : <b>{[members[pIndex].user.nickname]}</b></p>
-                        <p class="text-center">현재 부서 : <b>{[members[pIndex].stem_dept]}</b></p>
+                        <p class="text-center">이름 : <b>{[members[pIndex].nickname]}</b></p>
+                        <p class="text-center">현재 부서 : <b>{[members[pIndex].deptstem]}</b></p>
                         <div class="nav nav-pills nav-justified text-center" style="padding:0 0 10px 0;">
                           <button type="submit" form="changeDept" ng-click="changeDept( members[pIndex].id , 8)" class="btn btn-primary">명예회원</button>
                           <button type="submit" form="changeDept" ng-click="changeDept( members[pIndex].id , 9)" class="btn btn-primary">우수명예회원</button>
@@ -245,10 +245,10 @@
               <th>학과</th>
               <th>비고</th>
             </tr>
-            <tr ng-repeat="mem in members | filter:{stem_dept: '명예회원'} | filter:honorfilter | orderBy:['-cycle','user.nickname']">
-              <td style="vertical-align:middle;">{[mem.stem_dept]}</td>
-              <td style="vertical-align:middle;"><a href="/stem/people/{[mem.id]}">{[mem.user.nickname]}</a> ({[mem.cycle]}기)</td>
-              <td style="vertical-align:middle;">{[mem.dept]}</td>
+            <tr ng-repeat="mem in members | filter:{deptstem: '명예회원'} | filter:honorfilter | orderBy:['-cycle','user.nickname']">
+              <td style="vertical-align:middle;">{[mem.deptstem]}</td>
+              <td style="vertical-align:middle;"><a href="/stem/people/{[mem.id]}">{[mem.nickname]}</a> ({[mem.cycle]}기)</td>
+              <td style="vertical-align:middle;">{[mem.deptuniv]}</td>
               <td style="vertical-align:middle;"><div class="btn btn-sm btn-default" ng-click="openCard(mem.id,'3-1')"><i class="fa fa-exchange" aria-hidden="true"></i></div>
               <div class="btn btn-sm btn-default" ng-click="openCard(mem.id,'3-2')">PM</i></div></td>
                 <div class="member-card3-1" style="visibility:hidden;">
@@ -257,8 +257,8 @@
                         <h3 style="margin:0;"> 명예 회원 ― 등급 변경</h3>
                       </div>
                       <div class="box-body">
-                        <p class="text-center">이름 : <b>{[members[pIndex].user.nickname]}</b></p>
-                        <p class="text-center">현재 부서 : <b>{[members[pIndex].stem_dept]}</b></p>
+                        <p class="text-center">이름 : <b>{[members[pIndex].nickname]}</b></p>
+                        <p class="text-center">현재 부서 : <b>{[members[pIndex].deptstem]}</b></p>
                         <div class="nav nav-pills nav-justified text-center" style="padding:0 0 10px 0;">
                           <button type="submit" form="changeDept" ng-click="changeDept( members[pIndex].id , 7)" class="btn btn-primary">일반회원</button>
                           <button type="submit" form="changeDept" ng-click="changeDept( members[pIndex].id , 8)" class="btn btn-primary">명예회원</button>
@@ -277,8 +277,8 @@
                         <h3 style="margin:0;"> 명예 회원 ― PM 추가 활동</h3>
                       </div>
                       <div class="box-body">
-                        <p class="text-center">이름 : <b>{[members[pIndex].user.nickname]}</b></p>
-                        <p class="text-center">현재 부서 : <b>{[members[pIndex].stem_dept]}</b></p>
+                        <p class="text-center">이름 : <b>{[members[pIndex].nickname]}</b></p>
+                        <p class="text-center">현재 부서 : <b>{[members[pIndex].deptstem]}</b></p>
                         <div class="nav nav-pills nav-justified text-center" style="padding:0 0 10px 0;">
                           <button type="submit" form="changeDept" ng-click="changeDept( members[pIndex].id , 3)" class="btn btn-primary">대외교류부</button>
                           <button type="submit" form="changeDept" ng-click="changeDept( members[pIndex].id , 1)" class="btn btn-primary">봉사부</button>
@@ -311,7 +311,9 @@
 <script>
 $(document).ready(function(){
 $('#memberlist').css('display','block');
-$('.inactivemembers').css('height','200px');
+$('.activemembers').css('height','500px');
+$('.activemembers').css('overflow-y','scroll');
+$('.inactivemembers').css('height','300px');
 $('.inactivemembers').css('overflow-y','scroll');
 $("[class^=member-card]").css('visibility', 'visible');
 if($(window).width()>=768) { $("[class^=member-card]").css('width', $(window).width()*0.5)
@@ -321,6 +323,7 @@ $(window).resize(function () {
 if($(window).width()>=768) { $("[class^=member-card]").css('width', $(window).width()*0.5)
 } else {$("[class^=member-card]").css('width', $(window).width()*0.9)};
 });
+
 </script>
 
 <script src="{{url_for('static', filename='js/jquery.easyModal.js')}}"></script>

@@ -10,38 +10,33 @@
 <col>
 </colgroup>
 <thead>
-    {% if board.id == 2 %}
+    {% if board.id == 5 %}
     <tr>
         <th scope="row">잠금설정</th>
         <td colspan="3">
-            <input name="publicYN" type="radio" value="0" checked style="border:none;">
+            <input name="hidden" type="radio" value="0" checked style="border:none;">
             공개글
-            <input name="publicYN" type="radio" value="1" style="border:none;">
+            <input name="hidden" type="radio" value="1" style="border:none;">
             비공개글
         </td>
     </tr>
+    {% else %}
+    <input type="hidden" name="hidden" value="0">
     {% endif %}
     <tr>
         <th scope="row">작성자</th>
-        <td colspan="3"><input name="writer" type="text" size="38" maxlength="10" class="input" value="{{ post.author.nickname }}"></td>
+        <td colspan="3"><input name="writer" type="text" size="38" maxlength="10" class="input" value="{{ post.publicwriter.nickname }}"></td>
     </tr>
 </thead>
 <tbody>
     <tr>
         <th scope="row">Email</th>
-        <td colspan="3"><input name="email" type="text" size="50" maxlength="45" class="input" style="width:98%;" value="{{ post.author.email }}"></td>
+        <td colspan="3"><input name="email" type="text" size="50" maxlength="45" class="input" style="width:98%;" value="{{ post.publicwriter.email }}"></td>
     </tr>
     <tr>
         <th scope="row">제목</th>
         <td colspan="3"><input id="title" name="title" type="text" size="50" maxlength="45" class="input" style="width:98%;" value="{{ post.title }}"></td>
     </tr>
-    {% if post.board.imageSupport %}
-    <tr>
-        <th scope="row">이미지첨부</th>
-        <td colspan="3"><input type="file" name="imgfiles" style="width:70%" class="input"><input type="hidden" name="imgname" value="<%=imgNames%>">
-        <input type="checkbox" name="imgDel_Chk" style="border:none;"> 이미지변경여부</td>
-    </tr>
-    {% endif %}
     <tr>
         <td colspan="4" class="cont" style="padding:10px 0 5px 0;"><div id="textareaDIV"><textarea name="body" id="content" style="width:100%; word-break:break-all;" rows="15" class="ckeditor">{{ post.body }}</textarea></div></td>
     </tr>

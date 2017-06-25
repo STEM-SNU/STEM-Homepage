@@ -1,0 +1,490 @@
+{% extends "memberapp/base.html" %}
+
+{% block content %}
+ <section class="content-header" id="top">
+  <h1>
+    {{record.title}} 
+    <small></small>
+  </h1>
+
+  <ol class="breadcrumb">
+    <li><a href="/stem"><i class="fa fa-list-ul"></i> Home</a></li>
+    <li class="active">Conference Record</li>
+  </ol>
+</section>
+
+<!-- Main content -->
+<section class="content">
+    <div class="row">
+      
+        <div class="col-xs-12" id="attendance_box">
+          <div class="box">
+            <div class="box-header">
+              <h3 class="box-title">출결 기록</h3>
+            </div>
+            <div class="box-body">
+            <form id="attendance_create">
+            <div class="form-group col-xs-12" style="min-height:60px;">
+              <label for="attendant-0">참석</label>
+              <select id="attendant-0" class="form-control" multiple="multiple" style="width:100%" name="att-0">
+                {{attOptions(0)}}
+              </select>
+            </div>
+            <div class="form-group col-xs-12" style="min-height:60px;">
+              <label for="attendant-1">부분참(지각, 조퇴 등)</label>
+              <select id="attendant-1" class="form-control" multiple="multiple" style="width:100%" name="att-1">
+                {{attOptions(1)}}
+              </select>
+            </div>
+            <div class="form-group col-xs-12" style="min-height:60px;">
+              <label for="attendant-2">공결(시험, 공식행사, 기타 등)</label>
+              <select id="attendant-2" class="form-control" multiple="multiple" style="width:100%" name="att-2">
+                {{attOptions(2)}}
+              </select>
+            </div>
+            <div class="form-group col-xs-12" style="min-height:60px;">
+              <label for="attendant-4">결석</label>
+              <select id="attendant-4" class="form-control" multiple="multiple" style="width:100%" name="att-4" {% if record.conftype == 0%} tabindex="-1" readonly {% endif %}>
+                {{attOptions(4)}}
+              </select>
+            </div>
+            </form>
+            </div>
+            <div class="box-footer">
+                    <a href="#record_box" class="scroll btn btn-primary pull-right" onClick="gotoRecord();" id="record_make">회의록 <i class="fa fa-angle-right"></i></a>
+                    <div id="ajax_indicator" style="display:none;">
+                        <p class="pull-right" style="text-align:center; padding:0; margin:0 10px 0 0;"><img src="{{url_for('static', filename='images/loader.gif')}}"  border='0' alt='LOCKED'/></p>
+                    </div>﻿
+                </div>
+            </div>
+          </div>
+
+        <div class="col-xs-12" id="record_box">
+          <div class="box">
+            <div class="box-header">
+              <h3 class="box-title" id='pop'>회의록 &nbsp;<small>출결 기록을 확인하고 "회의록 <i class="fa fa-angle-right"></i>" 버튼을 눌러주세요.</small></h3>
+            </div>
+            <div class="box-body">
+              <form id="writeRecord" enctype="multipart/form-data" role="form" action="/stem/record/modify" method="POST">
+
+                <div class="form-group">
+                  <textarea name="body" class="form-control" rows="3" id="body">
+                      {% if not body %}
+                      <hr>
+                      <b>지난 회의 추진사항 점검</b>
+                      <hr>
+                      <p>1. </p>
+                      <p>2. </p>
+                      <hr>
+                      <b>회의 기록</b>
+                      <hr>
+                      <p>1. </p>
+                      <p>2. </p>
+                      {% else %}
+                      {{body | safe}}
+                      {% endif %}
+                  </textarea>
+                </div>
+
+                <div class="form-group">
+                  <label for="comment-files">첨부 파일</label>
+                  <input name="files" id="files" type="file" multiple="true" disabled>
+                </div>
+
+                <div class="form-group">
+
+                  <a href="#top" onclick="backtoAttend();" id="back_attend" class="scroll btn btn-primary pull-left disabled"><i class="fa fa-angle-left"></i> 출결 수정</a>
+                  <div class="btn-group pull-right">
+                  <button type="button" onClick="saveRecord()" id="save_record" class="btn btn-primary disabled">임시저장</button>                  
+                  <button type="button" onClick="writeRecord()" id="write_record" class="btn btn-primary disabled">저장</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div class="box-footer">
+            </div>
+          </div>
+        </div>
+
+    </div>
+</div>
+</section>
+{% endblock %}
+
+{% macro attOptions(val) -%}
+{% if (att_0 == ['']) and (att_1 == ['']) and (att_2 ==['']) and (att_4 ==['']) %}
+  {% if record.conftype == 0 %}
+      {% for attendant in actives %}
+      <option value="{{attendant.id}}" {% if val == 4 %}selected{% endif %}> {{attendant.nickname}}</option>
+      {% endfor %}
+  {% elif record.conftype in [2,3,4] %}
+      {% for attendant in actives %}
+      <option value="{{attendant.id}}" {% if val == 4 and attendant in buseo %}selected{% endif %}> {{attendant.nickname}}</option>
+      {% endfor %}
+  {% else %}
+      {% for attendant in actives %}
+      <option value="{{attendant.id}}"> {{attendant.nickname}}</option>
+      {% endfor %}
+  {% endif %}
+{% else %}
+    {% for attendant in actives %}
+      {% if val == 0 %}
+      <option value="{{attendant.id}}" {% if attendant.id|string() in att_0 %}selected{% endif %}> {{attendant.nickname}}</option>
+      {% elif val == 1 %}
+      <option value="{{attendant.id}}" {% if attendant.id|string() in att_1 %}selected{% endif %}> {{attendant.nickname}}</option>
+      {% elif val == 2 %}
+      <option value="{{attendant.id}}" {% if attendant.id|string() in att_2 %}selected{% endif %}> {{attendant.nickname}}</option>
+      {% elif val == 4 %}
+      <option value="{{attendant.id}}" {% if attendant.id|string() in att_4 %}selected{% endif %}> {{attendant.nickname}}</option>
+      {% endif %}
+    {% endfor %}
+{% endif %}
+{% endmacro %}
+
+{% block modals %}
+{% endblock %}
+
+{% block styles %}
+<link href="{{url_for('static', filename='adminLTE/plugins/datatables/dataTables.bootstrap.css')}}" rel="stylesheet" type="text/css">
+<link href="{{url_for('static', filename='select2/css/select2.min.css')}}" rel="stylesheet" type="text/css">
+<style>
+select[readonly] + .select2-container {
+  pointer-events: none;
+  touch-action: none;
+
+  .select2-selection {
+    background: black;
+    box-shadow: none;
+  }
+
+  .select2-selection__arrow,
+  .select2-selection__clear {
+    display: none;
+  }
+}
+
+{% if record.conftype == 0 %}
+label[for="attendant-4"] {
+  pointer-events: none;
+  touch-action: none;
+}
+{% endif %}
+
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{url_for('static', filename='select2/js/select2.min.js')}}" type="text/javascript"></script>
+<script src="{{url_for('static', filename='adminLTE/plugins/datatables/jquery.dataTables.min.js')}}" type="text/javascript"></script>
+<script src="{{url_for('static', filename='adminLTE/plugins/datatables/dataTables.bootstrap.min.js')}}" type="text/javascript"></script>
+<script src="https://cdn.ckeditor.com/4.6.2/standard/ckeditor.js" type="text/javascript"></script>
+<script src="{{url_for('static', filename='adminLTE/dist/js/ckeditor.jquery.js')}}" type="text/javascript"></script>
+<script>
+var editor = CKEDITOR.replace('body',
+  {toolbarGroups:[
+    { name: 'clipboard',   groups: ['undo' ] },
+    { name: 'links' },
+    { name: 'insert' },
+    { name: 'forms' },
+    { name: 'tools' },
+    { name: 'others' },
+    '/',
+    { name: 'basicstyles', groups: [ 'basicstyles', 'cleanup' ] },
+    { name: 'paragraph',   groups: [ 'list', 'indent', 'blocks', 'align' ] },
+    { name: 'styles' },
+    { name: 'colors' }]
+  });
+
+function saveRecord() {
+    var data = editor.getData();
+    if (data == '') {
+        alert('회의록을 비워둔 상태로 임시저장할 수 없습니다.')
+    } else {
+        $('select[id^=attendant').removeAttr('disabled');
+        var member0='';
+        var member0id='';
+        $('select[id=attendant-0]').children('option').each(function(i) {
+            if(this.selected == true) {
+            member0=member0+$(this).html()+' ';
+            member0id=member0id+$(this).val()+' ';
+        }});
+        var member1='';
+        var member1id='';
+        $('select[id=attendant-1]').children('option').each(function(i) {
+            if(this.selected == true) {
+            member1=member1+$(this).html()+' ';
+            member1id=member1id+$(this).val()+' ';
+        }});
+        var member2='';
+        var member2id='';
+        $('select[id=attendant-2]').children('option').each(function(i) {
+            if(this.selected == true) {
+            member2=member2+$(this).html()+' ';
+            member2id=member2id+$(this).val()+' ';
+        }});
+        var member4='';
+        var member4id='';
+        $('select[id=attendant-4]').children('option').each(function(i) {
+            if(this.selected == true) {
+            member4=member4+$(this).html()+' ';
+            member4id=member4id+$(this).val()+' ';
+        }});
+
+        var body = '<p>참석 : <b>'+member0+'</b></p><p>부분참(지각, 조퇴 등) : <b>'+member1+'</b></p><p>공결(시험, 공식행사, 기타 등) : <b>'+ member2+'</b></p><p>결석 : <b>'+member4+'</b>'+ '</p><p style="display:none;" class="forid">' + member0id + '</p><p style="display:none;" class="forid">' + member1id + '</p><p style="display:none;" class="forid">' + member2id + '</p><p style="display:none;" class="forid">' + member4id + '</p><!-- EndOfAttend -->' + editor.getData();
+
+        var data = new FormData();
+        data.append('body',body);
+
+        var files = $('#files')[0].files;
+        for (var i = 0; i < files.length; i++) {
+        data.append('files',files[i]);
+        }
+
+        $.ajax({
+            url: '/stem/api/record/write/{{record.id}}',
+            type: 'PUT',
+            data: data,
+            processData: false,
+            contentType: false,
+            success: function(data) {
+            alert('임시저장 완료 \n {{record.timestamp.strftime("%Y-%m-%d")}}');
+            $('select[id^=attendant]').attr('disabled', 'disabled');
+            }
+        });
+    }
+}
+
+function writeRecord() {
+    if (editor.getData() == '') {
+        msg = "회의록을 비워둔 상태로 저장합니다. 계속하시겠습니까?";
+    } else {
+        msg = "정말로 작성을 완료하시겠습니까?";
+    };
+    y = confirm(msg);
+    if (y) {
+        $('*').removeAttr('disabled');
+        var member0='';
+        var member0id='';
+        $('select[id=attendant-0]').children('option').each(function(i) {
+            if(this.selected == true) {
+            member0=member0+$(this).html()+' ';
+            member0id=member0id+$(this).val()+' ';
+        }});
+        var member1='';
+        var member1id='';
+        $('select[id=attendant-1]').children('option').each(function(i) {
+            if(this.selected == true) {
+            member1=member1+$(this).html()+' ';
+            member1id=member1id+$(this).val()+' ';
+        }});
+        var member2='';
+        var member2id='';
+        $('select[id=attendant-2]').children('option').each(function(i) {
+            if(this.selected == true) {
+            member2=member2+$(this).html()+' ';
+            member2id=member2id+$(this).val()+' ';
+        }});
+        var member4='';
+        var member4id='';
+        $('select[id=attendant-4]').children('option').each(function(i) {
+            if(this.selected == true) {
+            member4=member4+$(this).html()+' ';
+            member4id=member4id+$(this).val()+' ';
+        }});
+
+
+        var body = '<p>참석 : <b>'+member0+'</b></p><p>부분참(지각, 조퇴 등) : <b>'+member1+'</b></p><p>공결(시험, 공식행사, 기타 등) : <b>'+ member2+'</b></p><p>결석 : <b>'+member4+'</b>'+ '</p><p style="display:none;" class="forid">' + member0id + '</p><p style="display:none;" class="forid">' + member1id + '</p><p style="display:none;" class="forid">' + member2id + '</p><p style="display:none;" class="forid">' + member4id + '</p><!-- EndOfAttend -->' + editor.getData();
+
+        var data = new FormData();
+        data.append('body',body);
+
+        var files = $('#files')[0].files;
+        for (var i = 0; i < files.length; i++) {
+        data.append('files',files[i]);
+        }
+
+        $.ajax({
+            url: '/stem/api/record/write/{{record.id}}',
+            type: 'PUT',
+            data: data,
+            async: false,
+            processData: false,
+            contentType: false,
+            success: function(data) {
+            location.href="/stem/record/view/{{record.id}}"
+            }
+        });
+    }
+}
+
+CKEDITOR.instances.body.config.readOnly = true;
+CKEDITOR.instances.body.config.height = 500;
+$('select[id^=attendant]').select2();
+$('select[id=attendant-etc]').select2({
+  tags: true,
+  tokenSeparators: [',', ' ']
+})
+
+$('select[id^=attendant]').on('select2:select', function(e) {
+  if ($(this).val() == null) {
+    var id = new Array();
+  } else {
+  var id = e.params.data.id;
+  var ind_1 = $('select[id^=attendant]').index(this)
+  }
+  $('select[id^=attendant]').not('select[id^=attendant]:eq('+ind_1+')').each(function() {
+
+    if ($.inArray(id, $(this).val()) != -1) {
+      var list = $(this).val();
+      var ind_2 = $.inArray(id, $(this).val());
+      list.splice(ind_2,1);
+      $(this).val(list);
+      $(this).trigger('change');
+    }
+  });
+
+});
+
+function gotoRecord() {
+    {% if record.conftype == 0 %}
+      $('#ajax_indicator').show();
+      var memberSelections = '';
+      $('select[id^=attendant]').each(function(i) {
+        $(this).children('option').each(function(i) {
+          if(this.selected == true) {
+            memberSelections=memberSelections+this.value+' ';
+          }
+        });
+      });
+      $.ajax({
+        url: '/stem/api/quarter/memberconference/delete',
+        type: 'POST',
+        data: "conference_id={{conf_id}}&member_ids="+memberSelections,
+        success: function(data) {
+            memberAdd(memberSelections)
+        },
+        error: function(data) {
+            alert('ERR_CODE_001')
+        }
+      });
+    {% endif %}
+
+      $('#pop > small').html('회의록을 저장하지 않으면 출결 기록도 삭제됩니다.')
+      $('#record_make').addClass('disabled');
+      {% if record.conftype != 0 %}
+      $('#save_record').removeClass('disabled');
+      $('#write_record').removeClass('disabled');
+      $('#back_attend').removeClass('disabled');
+      {% endif %}
+      $('select[id^=attendant]').attr('disabled', 'disabled');
+      $('#files').removeAttr('disabled');
+      CKEDITOR.instances.body.setReadOnly(false);
+}
+
+function memberAdd(memberSelections) {
+    $.ajax({
+        url: '/stem/api/quarter/memberconference/add',
+        type: 'POST',
+        data: "conference_id={{conf_id}}&member_ids="+memberSelections,
+        success: function(data) {
+          stateUpdate();
+        },
+        error: function(data) {
+          alert('ERR_CODE_002');
+        }
+      });
+}
+
+function stateUpdate() {
+    $('select[id^=attendant-0]').children('option').each(function(i) {
+      if(this.selected == true) {
+        $.ajax({
+          url: '/stem/api/quarter/memberconference/update',
+          type: 'POST',
+          data: "member_id="+this.value+"&conference_id={{conf_id}}&state=0",
+          error: function(data) {
+            alert('ERR_CODE_003');
+          }
+        });
+      }
+
+    });
+
+    $('select[id^=attendant-1]').children('option').each(function(i) {
+      if(this.selected == true) {
+        $.ajax({
+          url: '/stem/api/quarter/memberconference/update',
+          type: 'POST',
+          data: "member_id="+this.value+"&conference_id={{conf_id}}&state=1",
+          error: function(data) {
+            alert('ERR_CODE_004');
+          }
+        });
+      }
+    });
+
+    $('select[id^=attendant-2]').children('option').each(function(i) {
+      if(this.selected == true) {
+        $.ajax({
+          url: '/stem/api/quarter/memberconference/update',
+          type: 'POST',
+          data: "member_id="+this.value+"&conference_id={{conf_id}}&state=2",
+          error: function(data) {
+            alert('ERR_CODE_005');
+          }
+        });
+      }
+    });
+
+    $('select[id^=attendant-4]').children('option').each(function(i) {
+      if(this.selected == true) {
+        $.ajax({
+          url: '/stem/api/quarter/memberconference/update',
+          type: 'POST',
+          data: "member_id="+this.value+"&conference_id={{conf_id}}&state=4",
+          error: function(data) {
+            alert('ERR_CODE_006');
+          }
+        });
+      }
+    });
+}
+
+function backtoAttend() {
+  $('#pop > small').html('출결 기록을 확인하고 "회의록 <i class="fa fa-angle-right"></i>" 버튼을 눌러주세요.');
+  $('#save_record').addClass('disabled');
+  $('#write_record').addClass('disabled');
+  $('#back_attend').addClass('disabled');
+  $('select[id^=attendant]').removeAttr('disabled');
+  $('#record_make').removeClass('disabled');
+  $('#back_conf').removeClass('disabled');
+  $('#files').attr('disabled', 'disabled');
+  CKEDITOR.instances.body.setReadOnly(true);
+}
+
+jQuery(document).ready(function($){
+    $(".scroll").click(function(event){
+    event.preventDefault();
+        $('html,body').animate({scrollTop:$(this.hash).offset().top}, 500);
+    });
+});
+
+{% if record.conftype == 0 %}
+$('select[id^=attendant]').not('select[id=attendant-4]').on('select2:unselect', function(e) {
+    var id = e.params.data.id;
+    var list = $('select[id=attendant-4]').val();
+    list.push(id);
+    $('select[id=attendant-4]').val(list);
+    $('select[id=attendant-4]').trigger('change');
+});
+
+$(document).ajaxStop(function() {
+    $('#ajax_indicator').hide();
+    $('#save_record').removeClass('disabled');
+    $('#write_record').removeClass('disabled');
+    $('#back_attend').removeClass('disabled');
+})
+
+{% endif %}
+</script>
+{% endblock %}

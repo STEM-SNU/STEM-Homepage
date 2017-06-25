@@ -119,7 +119,9 @@ section{margin-top:70px;}
     width:100%;
 }
 
-#HKeditorContent img {width:100% !important; height:auto !important;}
+div[name="HKeditorContent"] {word-break:break-all;}
+div[name="HKeditorContent"] img {width:100% !important; height:auto !important;}
+div[name="HKeditorContent"] a {text-decoration:underline;}
 
 #mobilepost thead tr th {color:#f19000; font-size:12px; text-align:center; width:20%; height:50px; border:1px solid #c0c0c0; vertical-align:middle;}
 #mobilepost thead tr td {text-align:center; border:1px solid #c0c0c0; width:80%; vertical-align:middle;}
@@ -142,7 +144,7 @@ section{margin-top:70px;}
 footer {position:relative; width:100%; z-index:8; margin:0 auto; border-top:1px solid #d7d7d7;padding:20px 0;*zoom:1;}
 footer:after {content:""; display:block; clear:both;}
 
-a {color:#666; line-height:1.5em; text-decoration:none;}
+a {color:#666; line-height:1.5em; text-decoration:;}
 a:visited {color:#666; line-height:1.5em; text-decoration:none;}
 a:hover {color:#222; line-height:1.5em; text-decoration:none;}
 a:active {color:#222; line-height:1.5em; text-decoration:none;}

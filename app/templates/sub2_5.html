@@ -8,7 +8,7 @@
     {% for item in AllRec %}
         <tr>
             <th>{{ item.period }}</th>
-            <td><div id='HKeditorContent' name='HKeditorContent'>{{ item.title | nl2br}}</div></td>
+            <td><div id='HKeditorContent' name='HKeditorContent'>{{ item.content | nl2br}}</div></td>
         </tr>
     {% endfor %}
 {%- endmacro %}

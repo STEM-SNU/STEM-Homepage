@@ -1,0 +1,20 @@
+<table class="table table-condensed table-striped text-center">
+<tbody>
+<tr style="background-color:white;">
+<th>부서</th>
+<th>이름</th>
+<th>기수</th>
+<th>점수</th>
+<th>페널티</th>
+</tr>
+{% for comp in completion %}
+<tr>
+<td style="vertical-align:middle;">{{comp[0]}}</td>
+<td style="vertical-align:middle;">{{comp[1]}}</td>
+<td style="vertical-align:middle;">{{comp[2]}}</td>
+<td style="vertical-align:middle; {% if comp[3]<comp[4] %}color:red;{%endif%}">{{comp[3]}} / {{comp[4]}}</td>
+<td style="vertical-align:middle; {% if comp[5]>=comp[6] %}color:red;{%endif%}">{{comp[5]}} / {{comp[6]}}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
