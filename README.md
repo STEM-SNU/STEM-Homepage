@@ -8,21 +8,21 @@
 **페이지 소개**
 -----
 
-1. [대외홍보용 페이지](#1)
+1. [대외홍보용 페이지](#1-대외홍보용-페이지)
   - About Us : 회장 인사말, 비전, 조직도, 오시는 길, 연락처
   - Activities : 학술, 대외교류, 봉사, 리더십, 활동연혁
   - People : 기수 별 프로필 (대외홍보용)
   - Join Us : 리쿠르팅 안내, 협력 단체, 후원 단체
   - Board : 공지, 뉴스, Q&A, 자유게시판
    
-2. [어드민 페이지 (DB 관리 페이지)](#2)
+2. [어드민 페이지 (DB 관리 페이지)](#2-어드민-페이지)
   - User : 회원계정 관리
   - Board, Post, Comnt : 게시판, 게시글, 코멘트 관리
   - STEMemo : 메모 관리
   - History : STEM 활동연혁 관리
   - Banner : 배너 관리
   
-3. [멤버 페이지 (STEMWare)](#3)
+3. [멤버 페이지 (STEMWare)](#3-멤버-페이지)
   - STEM Member Management System (SMMS) : STEM 회원 관리 시스템
   - STEM People : 기수 별 프로필 (내부교류용)
   - STEM Cloud : STEM 클라우드 서버 링크
