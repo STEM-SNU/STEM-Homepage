@@ -341,11 +341,21 @@
                 {% endfor %}
               </ul>
             </li>
+
+            <li class="treeview">
+              <a href="#"><i class='fa fa-cloud'></i> <span>STEM Cloud</span> <i class="fa fa-angle-left pull-right"></i></a>
+              <ul class="treeview-menu">
+                <li><a href="/stem-nas" {% if request.MOBILE == False %} target="_blank" {% endif %} ><i class='fa fa-angle-double-right'></i>클라우드 데스크톱</a></li>
+                <li><a href="/stem-photo" {% if request.MOBILE == False %} target="_blank" {% endif %} ><i class='fa fa-angle-double-right'></i>포토 스테이션</a></li>
+                <li><a href="/stem-file" {% if request.MOBILE == False %} target="_blank" {% endif %} ><i class='fa fa-angle-double-right'></i>파일 스테이션</a></li>
+              </ul>
+            </li>
+
             <li><a href="/stem/calendar"><i class='fa fa-calendar'></i> <span>Calendar</span></a></li>
             <li><a href="/stem/stememo"><i class='fa fa-hand-o-up'></i> <span>STEMemo</span></a></li>
 
             <li class="treeview" id="boards">
-              <a href="/stem/board"><i class='fa fa-list-ul'></i> <span>Board</span> <i class="fa fa-angle-left pull-right"></i></a>
+              <a href="#"><i class='fa fa-list-ul'></i> <span>Board</span> <i class="fa fa-angle-left pull-right"></i></a>
               <ul class="treeview-menu">
                 <li><a href="/stem/board">전체 게시판 목록</a></li>
                 {% for board in prior_boards %}
@@ -364,14 +374,6 @@
                 <li><a href="/stem/record/write"><i class='fa fa-angle-double-right'></i>회의록 작성/수정</a></li>
               {% endif %}
                 <li><a href="/stem/record"><i class='fa fa-angle-double-right'></i>회의록 열람/검색</a></li>
-              
-              </ul>
-            </li>
-            <li class="treeview">
-              <a href="#"><i class='fa fa-flask'></i> <span>Created by</span> <i class="fa fa-angle-left pull-right"></i></a>
-              <ul class="treeview-menu">
-                <li class="text-center"><a href="#">Taehee Jeong</a></li>
-                <li class="text-center"><a href="#">STEM</a></li>
               </ul>
             </li>
           </ul><!-- /.sidebar-menu -->
@@ -407,7 +409,7 @@
       <footer class="main-footer">
         <!-- To the right -->
         <div class="pull-right hidden-xs">
-          SNU Tomorrow's Edge Membership
+          Created by <a href="/stem/people/2">T.Jeong</a> &amp; <a href="/stem/people/159">S.Lee</a>
         </div>
         <!-- Default to the left -->
         <b>Copyright &copy; 2015-2017 <a href="/">공우(STEM)</a>.</b> All rights reserved.
@@ -684,6 +686,9 @@ function sentOpen(sent_id) {
 }
 
 </script>
+
+
+
 {% block scripts %}
 {% endblock %}
     <!-- Optionally, you can add Slimscroll and FastClick plugins.

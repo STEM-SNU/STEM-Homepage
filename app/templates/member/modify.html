@@ -216,6 +216,11 @@ STEM에게 하고 싶은 말
 </form>
 
 <p style="margin:20px 0 0 0; font-weight:bold; text-align:center; font-size:12px;">* 현재 비밀번호가 일치하지 않은 상태로 버튼을 클릭하면 모든 수정상황이 삭제됩니다.</p>
+
+{%if current_user.ismember %}
+<p style="margin:0; font-weight:bold; text-align:center; font-size:12px;">* 업데이트 알림으로 온 경우, 수정사항이 없더라도 수정버튼을 눌러야 최종 수정날짜가 반영됩니다.</p>
+{% endif %}
+
 <p style="padding:15px 0; text-align:center;">
 
     <input type="button" title="" value="회원정보수정" class="button2" style='cursor:pointer;' onclick="sendit()">

@@ -13,6 +13,7 @@ from werkzeug import secure_filename
 from urllib.parse import urlparse, urljoin
 from itsdangerous import URLSafeTimedSerializer
 from app import app, models, db, notification
+from sqlalchemy.sql.expression import func
 
 ts = URLSafeTimedSerializer(app.config["SECRET_KEY"])
 
@@ -105,6 +106,14 @@ class RegisterForm(RedirectForm):
             user.password = member.password
 
             db.session.add(user)
+
+            idnum = db.session.query(func.max(models.User.id).label("id")).first().id
+            boardmember = models.BoardMember()
+            boardmember.title = '개인게시판 ' + str(idnum + 1)
+            boardmember.group_id = 10
+            boardmember.owner_id = user.id
+
+            db.session.add(boardmember)
             db.session.commit()
 
             self.user=user
@@ -207,6 +216,8 @@ class ModifyMemberForm(ModifyForm):
         self.user.social = self.social.data
 
         self.user.position = self.position.data
+
+        self.user.last_mod = datetime.now()
 
         self.user.deptuniv_id = self.department.data
         self.user.deptstem_id = self.stem_department.data

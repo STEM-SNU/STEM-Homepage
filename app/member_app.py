@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import os
 import pytz
 import uuid
@@ -51,6 +53,37 @@ def note(type):
             .filter_by(recv_del=0).order_by(models.Note.timestamp.desc()) \
             .all()
         return received_notes
+
+
+@member_app.route('-<string:cloud>')
+def tonas(cloud):
+    if request.MOBILE == False:
+        if cloud == 'nas':
+            return redirect('https://'+request.host+':8088')
+        elif cloud == 'file':
+            return redirect('https://'+request.host+':8088/file')
+        elif cloud == 'photo':
+            return redirect('https://'+request.host+':8089/photo')
+        else:
+            abort(404)
+    else:
+        if cloud == 'nas':
+            flash('모바일 환경에서는 클라우드 데스크톱이 지원되지 않습니다.')
+            return redirect(url_for('.tonas', cloud='file'))
+        elif cloud in ['file', 'photo']:
+            if current_user.is_anonymous():
+                abort(401)
+            else:
+                if current_user.ismember:
+                    return render_template('mobile_nas.html', member=current_user, nav_id=4,
+                    notifications=notification.Generate(current_user),
+                    prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
+                    group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
+                    current=Current(), snotes=note(0), rnotes=note(1), cloud=cloud)
+                else:
+                    abort(403)
+        else:
+            abort(404)
 
 @member_app.route('/')
 @member_required
@@ -180,15 +213,15 @@ def CompletionState(mem_id_shown):
         for conference in conferences:
             if conference.quarter_id == id:
                 state = statetable.query.filter_by(conference_id=conference.id).filter_by(member_id=mem_id_shown).first().state
-                if state == 1: # 지각인 경우
+                if state == 1:
                     statesum = statesum + 1/3
-                elif state in [0,2]: # 출석이나 공결인 경우
+                elif state in [0,2]:
                     pass
-                elif state == 3: # 공결하였으나 회의록 확인을 달지 않은 경우
+                elif state == 3:
                     statesum = statesum + 1/3
-                elif state == 4: # 결석한 경우
+                elif state == 4:
                     statesum = statesum + 1
-                else: # 나머지 state는 모두 결석하였고 회의록 확인을 달지 않은 경우
+                else:
                     statesum = statesum + 4/3
         quarter = models.Quarter.query.filter_by(id=id).first()
         completion.append([id, quarter.year, quarter.semester, scoresum, quarter.activity_score, round(statesum,1), quarter.conference_absence])
@@ -457,7 +490,7 @@ def showMember(id):
 def showCalendar():
     try:
         return render_template(
-            'calendar.html', member=current_user, nav_id=4,
+            'calendar.html', member=current_user, nav_id=5,
             notifications=notification.Generate(current_user),
             prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
             group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
@@ -493,7 +526,7 @@ def showSTEMemo(page):
         mem = models.User
         return render_template(
             'memo.html',
-            current_user=current_user, nav_id=5,
+            current_user=current_user, nav_id=6,
             notifications=notification.Generate(current_user),
             prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
             group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(), 
@@ -513,7 +546,7 @@ def showBoardList():
             bgroups = models.Bgroup.query.all()
         return render_template(
             'post_group.html',
-            current_user=current_user, nav_id=6, bgroups=bgroups,
+            current_user=current_user, nav_id=7, bgroups=bgroups,
             notifications=notification.Generate(current_user),
             prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
             group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
@@ -630,7 +663,7 @@ def showPage(boardmember_id,page):
                 db.session.commit()
 
         return render_template(
-            'post_list.html', member=current_user, nav_id=6,
+            'post_list.html', member=current_user, nav_id=7,
             board=board, posts=posts, maxpage = maxpage, page=page,
             totalpost=totalpost,
             notifications=notification.Generate(current_user),
@@ -709,7 +742,7 @@ def showPost(boardmember_id, postmember_id):
         db.session.commit()
 
         return render_template(
-            'post_view.html', member=current_user, nav_id=6,
+            'post_view.html', member=current_user, nav_id=7,
             board=board, post=post, page = page,
             notifications=notification.Generate(current_user),
             prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
@@ -733,7 +766,7 @@ def modifyPost(boardmember_id, postmember_id):
             abort(403)
 
         return render_template(
-            'post_modify.html', member=current_user, nav_id=6,
+            'post_modify.html', member=current_user, nav_id=7,
             board=board, post=post,
             notifications=notification.Generate(current_user),
             prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
@@ -817,7 +850,7 @@ def writePost(boardmember_id):
 
         return render_template(
             'post_write.html',
-            member=current_user, nav_id=6, board=board,
+            member=current_user, nav_id=7, board=board,
             notifications=notification.Generate(current_user),
             prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
             group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(),
@@ -839,7 +872,7 @@ def writeRecordList():
                        filter(models.Record.confday >= limit).all()
 
     return render_template('record/record_writable.html',
-        member=current_user, nav_id=7, current=current, notifications=notification.Generate(current_user), snotes=note(0), rnotes=note(1),
+        member=current_user, nav_id=8, current=current, notifications=notification.Generate(current_user), snotes=note(0), rnotes=note(1),
         prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
         group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(), records=writableRecords)
 
@@ -900,7 +933,7 @@ def writeRecord(record_id):
         abort(403)
 
     return render_template(
-            'record/record_write.html', member=current_user, nav_id=7, conf_id=conf_id,
+            'record/record_write.html', member=current_user, nav_id=8, conf_id=conf_id,
             record=record, actives=actives, buseo=buseo, body=body, att_0 = att_0, att_1=att_1,
             att_2=att_2, att_4=att_4, notifications=notification.Generate(current_user),
             prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
@@ -985,7 +1018,7 @@ def listRecord():
     confplace = confplace.strip("%")
 
     return render_template('record/record_list.html',
-        member=current_user, nav_id=7, current=Current(), records=records, page=page, maxpage=maxpage,
+        member=current_user, nav_id=8, current=Current(), records=records, page=page, maxpage=maxpage,
         notifications=notification.Generate(current_user), 
         prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
         group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(), snotes=note(0), rnotes=note(1),
@@ -1005,7 +1038,7 @@ def viewRecord(record_id):
     db.session.commit()
 
     return render_template(
-        'record/record_view.html', member=current_user, nav_id=7, record=record, comments=comments,
+        'record/record_view.html', member=current_user, nav_id=8, record=record, comments=comments,
             notifications=notification.Generate(current_user), snotes=note(0), rnotes=note(1),
             prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
             group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all(), current=Current())
@@ -1022,7 +1055,7 @@ def makeRecord():
     day=datetime.now().strftime('%Y-%m-%d')
 
     return render_template('record/record_make.html',
-        member=current_user, nav_id=7, current=current, quarter=quarter, confday=day,
+        member=current_user, nav_id=8, current=current, quarter=quarter, confday=day,
         notifications=notification.Generate(current_user), snotes=note(0), rnotes=note(1),
         prior_boards = models.BoardMember.query.filter(or_(models.BoardMember.id==1, models.BoardMember.id==2)).all(),
         group_lists=models.Bgroup.query.filter(models.Bgroup.id != 1).all())

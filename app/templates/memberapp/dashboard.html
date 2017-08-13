@@ -468,6 +468,19 @@ function addMemo() {
     }
   });
 }
-
+$(document).ready(function(){
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+{% for message in messages %}
+    y = confirm('{{message}}');
+    if (y) {
+        location.href='https://gongwoo.snu.ac.kr/member/modify';
+    } else {
+        alert('수정하지 않는 경우 다음 로그인 시에도 지속적으로 알림이 뜹니다.');
+    }
+{% endfor %}
+{% endif %}
+{% endwith %}
+});
 </script>
 {% endblock %}

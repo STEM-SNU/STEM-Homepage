@@ -534,6 +534,7 @@ class User(db.Model):
     addr = db.Column(db.Unicode(512))
     social = db.Column(db.Unicode(256))
     position = db.Column(db.Unicode(512))
+    last_mod = db.Column(db.DateTime)
     sent_notifications = \
         db.relationship('Notification', backref='sender', lazy='dynamic',
                 primaryjoin='Notification.sender_id==User.id', cascade='all, delete')
@@ -577,7 +578,7 @@ class User(db.Model):
         self.nickname = nickname
         self.email = email
         self.ismember = ismember
-        if ismember == False:
+        if self.ismember == False:
             self.cycle = None
             self.deptuniv_id = None
             self.deptstem_id = None
@@ -590,6 +591,7 @@ class User(db.Model):
             self.addr = None
             self.social = None
             self.position = None
+            self.last_mod = None
         else:
             self.cycle = 0
             self.deptuniv_id = 0
@@ -603,15 +605,7 @@ class User(db.Model):
             self.addr = ''
             self.social = ''
             self.position = ''
-
-            idnum = db.session.query(func.max(User.id).label("id")).first().id
-            boardmember = BoardMember()
-            boardmember.title = '개인게시판 ' + str(idnum + 1)
-            boardmember.group_id = 10
-            boardmember.owner_id = idnum + 1
-
-            db.session.add(boardmember)
-            db.session.commit()
+            self.last_mod = ''
 
     def __repr__(self):
         if self.ismember == False:

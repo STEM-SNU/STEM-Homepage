@@ -36,7 +36,7 @@ class HistoryForm(Form):
     end = DateField('End', validators=[Optional()],
                     widget=form.DatePickerWidget())
     content = TextAreaField('Content', validators=[DataRequired()])
- 
+
     def validate_end(form, field):
         if not form.one_day.data:
             try:
@@ -59,10 +59,10 @@ class AuthModelView(ModelView):
 
 
 class UserView(AuthModelView):
-    column_list = ['username', 'nickname', 'email', 'ismember']
+    column_list = ['username', 'nickname', 'email','ismember']
     column_searchable_list = ['username', 'nickname', 'email', 'cycle', 'phone']
-    column_editable_list = ['email','ismember']
-    form_excluded_columns = ['sent_notifications', 'received_notifications', 'owned_boards',
+    column_editable_list = ['email']
+    form_excluded_columns = ['last_mod', 'sent_notifications', 'received_notifications', 'owned_boards',
                             'member_comments', 'public_comments', 'record_comments', 'profile_comments_recv',
                             'profile_comments_writ', 'activities', 'conferences', 'received_profile_comments',
                             'writing_profile_comments', 'boardmember',

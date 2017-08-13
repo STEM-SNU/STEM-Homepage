@@ -1,0 +1,79 @@
+{% extends "memberapp/base.html" %}
+{% block content %}
+<section class="content-header">
+    <h1>
+        STEM Cloud
+        <small>공우의 역사를 기록하고 확인하세요.</small>
+    </h1>
+    <ol class="breadcrumb">
+        <li><a href="/stem"><i class="fa fa-dashboard"></i> Home</a></li>
+        <li class="active">STEM Cloud</li>
+    </ol>
+</section>
+
+<section class="content">
+<div class="row">
+      <div class="col-xs-12">
+          <div class="box">
+            <div class="box-header with-border">
+              <h3 class="box-title">STEM <span style="text-transform: uppercase;">{{cloud}}</span> for Mobile</h3>
+            </div><!-- /.box-header -->
+            <div class="box-body"> 
+             <p class="text-center">모바일에서는 아래 어플리케이션을 사용해 주세요.</p>
+             <div class="col-xs-6 text-center"><small>Android :</small></div>
+             <div class="col-xs-6 text-center"><small>iPhone :</small></div>
+          	 <div class="col-xs-6 text-center">
+          	 {% if cloud != 'photo' %}
+          	 <a href="intent://com.synology.DSfile#Intent;scheme=android-app;package=com.google.android.googlequicksearchbox;action=android.intent.action.VIEW;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.synology.DSfile%26hl%3Den%26referrer%3Dutm_source%253Dgoogle%2526utm_medium%253Dorganic%2526utm_term%253Dds%2Bfile%26pcampaignid%3DAPPU_19_IaOAWeXZGcf98gWyhbeQBg;end">
+          	 {% else %}
+          	 <a href="intent://com.synology.dsphoto#Intent;scheme=android-app;package=com.google.android.googlequicksearchbox;action=android.intent.action.VIEW;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.synology.dsphoto%26hl%3Den%26referrer%3Dutm_source%253Dgoogle%2526utm_medium%253Dorganic%2526utm_term%253Dds%2Bphoto%26pcampaignid%3DAPPU_19_9aOAWYW5HYGY8QWaj5eoCg;end">
+          	 {% endif %}
+          	 <img src="data:image/png;base64,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" style="width:64px;"></a>
+          	 </div>
+          	 <div class="col-xs-6 text-center">
+           	 {% if cloud != 'photo' %}
+          	 <a href="https://itunes.apple.com/us/app/ds-file/id416751772?mt=8">
+          	 {% else %}
+          	 <a href="https://itunes.apple.com/us/app/ds-photo/id321493106?mt=8">
+          	 {% endif %}
+          	 <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAANlBMVEXGx8n////HyMr8/Pzy8vPt7e74+PjKysvm5ufd3d/j4+Ta29zHyMzQ0tT5+fns7e3V1dfNztJT8FeQAAAETklEQVR4nN2b63KsIAyAWUEBka6+/8t2d7aHa4JYSTpz8rfVfEIIua14EMhirNey73/FcO3KavGWvwGQ5hA/8icARosgnY+MBFA+qhcbO4C0IhXPDbD4TL9wzABK5/qF4QVQU6FfKFYAVaoXR++jQwCWrQKwnADyqPR378AQgL3W33sIhwA8a/3iyQggywN4aQEGAKy3FuA+wFflAYTYLzx/GwBYgOmLEwCwgPnK83cBgCOwXnrBXQBX6e+9BgcBVCZ4xQAHAFS30MXvvw1gbu3/AIA8DNOX7H8IQGaD7sr5HwSQXIRH9w08EiC4If+L1R8B8AmFtf3d1/cCSGVW66xdjSp32Qu9r4B29Xw/4uz6PEM7A5CzywL+w5kl+fMCZIBq3VP3NO3ZE9cAlAPuGnGs6BtfvHWA+rIQg6aqLYCnB971740QA6z9YyYrgoADzECsmzHke//6diA0SWSDETCABQh1689y66xeMhvr29o/yJBBIgCljx8ktl4EEED2fP6vxFemAwGUmfZI0eU2AAALdPTGyXwGQKxfTM82gCRc/x8C1QSoo8zhsn01AIjOXyo6q94UAEuHP7kpe34SCwAyBxCkDFtzgJlafR225gDUJ2Cqb4MMgHoBAP05APUCQHWLFKCu9o0VMG1KAYh9EJy2JgCSVv8EB5IJALETRPLWBIDWCR2nQamk9cJY+T4CQAXPcTJhiUEEsOdvuSFo9TwC0HohNEUMALQmoDH9EYDWDeK1qwBA6wXwFlYAgIre4wSvEgQA2osAbyQHAFI/iNtgBCA9hY0mXgAgzYcaLRwegEYFOwCQ+qEeAEr9XVvwfwP0HEPacAQvVfKcgkYjLQCcVAVvCt5J4XHFDStkuowE2kxhuo7xgIApIMGvowBAnZpj5yAALMQA2HUQw3Li+iQ21MCVF6BWEAHIK5SwM4oA9CVKMDSOANQFGiRDT9JzcgDwJCQFCvIyOZihJQC0+TlGkADQVih+ZC/tIAGg9oUfKdtWaZ2QwQjeYlAADiN4S9Yx4CzVRnELCEB+H6UIIADXHqAAfHsQ74W8Y0IbmycSU6UcgKFp9xGDABDXi4MkhduibcdkhknhtmxcsuhPexdl65ahdZzfiSUAy0lUDQCG5m0eFFQA9FaQd6/qCQpyK8h7FzUANCo9UoqxZ2CIhTdRh8Z4SG+EslYCAZAexY45IlKHXHXP4FEusk2oszN4mI1sE04mKKIQnQSgfYnNE5J4ZA+kx+hAI0GEDE4QoCOdBGYAFsrwmdLh8SFcq2xM1Q42RKR/3hrrHeqPsO5xc7B5IAHavW5PVg/bhY7uOSzmJDjYjt05t5+57sYvP86G26vfkkY57BxiC6kM7rp06/enp+P9yIj1UQ/1yxn+V3Cguh/g8ZirbZgcUnxf1qrMg0619wM8pMn2YZ9br1Q2NYjJtn5b0AvwXl3rt0lo74w6/1H7Yuyu9bR510T9yDf2lyqeQjZfbAAAAABJRU5ErkJggg==" style="width:64px;"></a>
+          	 </div>
+            </div>
+            <div class="box-footer with-border">
+            <p class="text-center"><b><i class="fa fa-question-circle"></i> 접속 시 입력 사항</b></p>
+			 {% if cloud != 'photo' %}
+          	 <img class="img-rounded" src="{{ url_for('static', filename='images/cloud_file.png') }}" style="width:100%">
+          	 <p class="text-center" style="margin-top:10px;">주소 뒤에 포트번호 <b>8080</b> 입력. HTTPS 접속 <b>해제</b></p>
+          	 {% else %}
+          	 <img class="img-rounded" src="{{ url_for('static', filename='images/cloud_photo.png') }}" style="width:100%">
+          	 <p class="text-center" style="margin-top:10px;">주소 뒤에 포트번호 <b>8089</b> 입력. HTTPS 접속 <b>체크</b></p>
+          	 {% endif %}
+            </div>
+
+          </div>
+        </div>
+</div>
+</section>
+{% endblock %}
+
+{% block modals %}
+{% endblock %}
+
+{% block styles %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% with messages = get_flashed_messages() %}
+$( document ).ready(function() {
+    {% if messages %}
+    {% for message in messages %}
+      alert('{{message}}');
+    {% endfor %}
+  {% endif %}
+});
+
+{% endwith %}
+</script>
+{% endblock %}
