@@ -177,23 +177,26 @@ label[for="attendant-4"] {
 <script src="{{url_for('static', filename='select2/js/select2.min.js')}}" type="text/javascript"></script>
 <script src="{{url_for('static', filename='adminLTE/plugins/datatables/jquery.dataTables.min.js')}}" type="text/javascript"></script>
 <script src="{{url_for('static', filename='adminLTE/plugins/datatables/dataTables.bootstrap.min.js')}}" type="text/javascript"></script>
-<script src="https://cdn.ckeditor.com/4.6.2/standard/ckeditor.js" type="text/javascript"></script>
+<script src="https://cdn.ckeditor.com/4.7.1/full/ckeditor.js" type="text/javascript"></script>
 <script src="{{url_for('static', filename='adminLTE/dist/js/ckeditor.jquery.js')}}" type="text/javascript"></script>
 <script>
 var editor = CKEDITOR.replace('body',
-  {toolbarGroups:[
-    { name: 'clipboard',   groups: ['undo' ] },
-    { name: 'links' },
-    { name: 'insert' },
-    { name: 'forms' },
-    { name: 'tools' },
-    { name: 'others' },
-    '/',
-    { name: 'basicstyles', groups: [ 'basicstyles', 'cleanup' ] },
-    { name: 'paragraph',   groups: [ 'list', 'indent', 'blocks', 'align' ] },
-    { name: 'styles' },
-    { name: 'colors' }]
+  {toolbar:[
+  { name: 'clipboard', groups: [ 'clipboard', 'undo' ], items: [ 'Cut', 'Copy', 'Paste', 'PasteText', 'PasteFromWord', '-', 'Undo', 'Redo' ] },
+  { name: 'basicstyles', groups: [ 'basicstyles', 'cleanup' ], items: [ 'Bold', 'Italic', 'Underline', 'Strike', 'Subscript', 'Superscript', '-', 'CopyFormatting', 'RemoveFormat' ] },
+  '/',
+  { name: 'paragraph', groups: [ 'list', 'indent', 'blocks', 'align', 'bidi' ], items: [ 'NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'Blockquote', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock' ] },
+  { name: 'links', items: [ 'Link', 'Unlink', 'Anchor' ] },
+  { name: 'insert', items: [ 'Image', 'Table', 'HorizontalRule', 'Smiley', 'SpecialChar' ] },
+  '/',
+  { name: 'styles', items: [ 'Styles', 'Format', 'Font', 'FontSize' ] },
+  { name: 'colors', items: [ 'TextColor', 'BGColor' ] },
+  { name: 'tools', items: [ 'Maximize' ] },
+  { name: 'others', items: [ '-' ] },
+  { name: 'about', items: [ 'About' ] }]
   });
+
+var unloadcheck = true;
 
 function saveRecord() {
     var data = editor.getData();
@@ -247,7 +250,8 @@ function saveRecord() {
             processData: false,
             contentType: false,
             success: function(data) {
-            alert('임시저장 완료 \n {{record.timestamp.strftime("%Y-%m-%d")}}');
+            	var ND_date=new Date();
+        	$('#pop > small').html('임시저장 @ ' + ND_date)
             $('select[id^=attendant]').attr('disabled', 'disabled');
             }
         });
@@ -292,6 +296,7 @@ function writeRecord() {
             member4id=member4id+$(this).val()+' ';
         }});
 
+        unloadcheck = false;
 
         var body = '<p>참석 : <b>'+member0+'</b></p><p>부분참(지각, 조퇴 등) : <b>'+member1+'</b></p><p>공결(시험, 공식행사, 기타 등) : <b>'+ member2+'</b></p><p>결석 : <b>'+member4+'</b>'+ '</p><p style="display:none;" class="forid">' + member0id + '</p><p style="display:none;" class="forid">' + member1id + '</p><p style="display:none;" class="forid">' + member2id + '</p><p style="display:none;" class="forid">' + member4id + '</p><!-- EndOfAttend -->' + editor.getData();
 
@@ -369,6 +374,7 @@ function gotoRecord() {
       });
     {% endif %}
 
+      setInterval(saveRecord,60000);
       $('#pop > small').html('회의록을 저장하지 않으면 출결 기록도 삭제됩니다.')
       $('#record_make').addClass('disabled');
       {% if record.conftype != 0 %}
@@ -486,5 +492,13 @@ $(document).ajaxStop(function() {
 })
 
 {% endif %}
+
+function beforeUnloadHandler(){
+	if (unloadcheck) {
+       return '회의록 작성 중입니다.';
+	}
+   }
+$(window).bind('beforeunload', beforeUnloadHandler);
+
 </script>
 {% endblock %}

@@ -326,13 +326,11 @@ def MemberAddList():
 
     return render_template('memberapp/mms/mgmt_memberaddlist.html', members=members, snotes=note(0), rnotes=note(1))
 
-@member_app.route('/mms/mgmt/completion_record/member_activelist')
+@member_app.route('/mms/mgmt/completion_record/member_recordtable/<int:year>/<int:semester>')
 @member_required
-def MemberActiveList():
+def MemberRecordTable(year, semester):
     if not current_user.id in Current().page_manager_ids():
         abort(404)
-
-    active_members = Current().active("actives")
 
     scoresum = 0
     statesum = 0
@@ -342,20 +340,37 @@ def MemberActiveList():
 
     recentyear = Current().year
     recentsemester = Current().semester
-    recentquarter = models.Quarter.query.filter_by(year=recentyear).filter_by(semester=recentsemester).first()
-    recentid = recentquarter.id
+    quarter = models.Quarter.query.filter_by(year=recentyear).filter_by(semester=recentsemester).first()
+    qid = quarter.id
 
-    for active_member in active_members:
-        activities = active_member.activities
-        conferences = active_member.conferences
+    if year == recentyear and semester == recentsemester:
+        record_members = Current().active("actives")
+    else:
+        quarter = models.Quarter.query.filter_by(year=year).filter_by(semester=semester).first_or_404()
+        qid = quarter.id
+        IDset =[]
+        for qactivity in quarter.activities:
+            memacts = models.Member_Activity.query.filter_by(activity_id=qactivity.id).all()
+            for memact in memacts:
+                IDset.append(memact.member_id)
+
+        for qconference in quarter.conferences:
+            memcons = models.Member_Conference.query.filter_by(conference_id=qconference.id).all()
+            for memcon in memcons:
+                IDset.append(memcon.member_id)
+        record_members = models.User.query.filter(models.User.id.in_(IDset)).order_by(models.User.cycle).order_by(models.User.nickname).all()
+
+    for record_member in record_members:
+        activities = record_member.activities
+        conferences = record_member.conferences
 
         for activity in activities:
-            if activity.quarter_id == recentid:
-                score = scoretable.query.filter_by(activity_id=activity.id).filter_by(member_id=active_member.id).first().score
+            if activity.quarter_id == qid:
+                score = scoretable.query.filter_by(activity_id=activity.id).filter_by(member_id=record_member.id).first().score
                 scoresum = scoresum + score
         for conference in conferences:
-            if conference.quarter_id == recentid:
-                state = statetable.query.filter_by(conference_id=conference.id).filter_by(member_id=active_member.id).first().state
+            if conference.quarter_id == qid:
+                state = statetable.query.filter_by(conference_id=conference.id).filter_by(member_id=record_member.id).first().state
                 if state == 1: # 지각인 경우
                     statesum = statesum + 1/3
                 elif state in [0,2]: # 출석이나 공결인 경우
@@ -366,11 +381,11 @@ def MemberActiveList():
                     statesum = statesum + 1
                 else: # 나머지 state는 모두 결석하였고 회의록 확인을 달지 않은 경우
                     statesum = statesum + 4/3
-        completion.append([active_member.deptstem.name, active_member.nickname, active_member.cycle, scoresum, recentquarter.activity_score, round(statesum,1), recentquarter.conference_absence])
+        completion.append([record_member.deptstem.name, record_member.nickname, record_member.cycle, scoresum, quarter.activity_score, round(statesum,1), quarter.conference_absence])
         scoresum = 0
         statesum = 0
 
-    return render_template('memberapp/mms/mgmt_memberactivelist.html', completion=completion)
+    return render_template('memberapp/mms/mgmt_memberrecordtable.html', completion=completion)
 
 @member_app.route('/mms/active', methods=['GET', 'POST'])
 @member_required

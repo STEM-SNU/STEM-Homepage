@@ -81,6 +81,7 @@ var editor = CKEDITOR.replace('body',
 	{ name: 'about', items: [ 'About' ] }]
   });
 
+var unloadcheck = true;
 
 function writePost() {
   if (jQuery("#title").val() == '') {
@@ -88,6 +89,9 @@ function writePost() {
     jQuery("#title").focus();
     return;
   }
+
+  unloadcheck = false;
+
   var data = new FormData();
   data.append('boardmember_id',{{board.id}});
   data.append('title',$('#title').val());
@@ -106,6 +110,13 @@ function writePost() {
     error: function() {alert('게시글 수정 중 오류가 발생했습니다.');}
   });
 }
+
+function beforeUnloadHandler(){
+  if (unloadcheck) {
+       return '글 작성 중입니다.';
+  }
+   }
+$(window).bind('beforeunload', beforeUnloadHandler);
 </script>
 
 

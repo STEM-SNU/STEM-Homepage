@@ -77,6 +77,7 @@
 
 <script type="text/javascript">
 CKEDITOR.replace( "content", { customConfig: "config_mobile.js" } );
+var unloadcheck=true;
 
 function writeit(){
     var article=document.boardfrm;
@@ -85,6 +86,14 @@ function writeit(){
         article.title.focus();
         return;
     }
+    unloadcheck=false;
     article.submit();
 }
+
+function beforeUnloadHandler(){
+    if (unloadcheck) {
+       return '회의록 작성 중입니다.';
+    }
+   }
+$(window).bind('beforeunload', beforeUnloadHandler);
 </script>

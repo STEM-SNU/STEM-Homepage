@@ -3,7 +3,7 @@
  <section class="content-header">
   <h1>
     {{post.title}}
-    <small><span class="date" data-timestamp="{{post.timestamp.timestamp()}}" data-time-format="YYYY-MM-DD hh:mm"></span>, written by <a href="/stem/people/u_{{post.memberwriter.id}}">{{post.memberwriter.nickname}}</a> ({{post.memberwriter.username}})</small>
+    <small><span class="date" data-timestamp="{{post.timestamp.timestamp()}}" data-time-format="YYYY-MM-DD hh:mm"></span>, written by <a href="/stem/people/{{post.memberwriter.id}}">{{post.memberwriter.nickname}}</a> ({{post.memberwriter.username}})</small>
   </h1>
   <ol class="breadcrumb">
     <li><a href="/stem"><i class="fa fa-list-ul"></i> Home</a></li>

@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8">
-    <title>STEM - Tomorrow's Edge</title>
+    <title>STEM - Tomorrow's Engineers</title>
     <meta content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' name='viewport'>
     <!-- Bootstrap 3.3.4 -->
     <link href="{{url_for('static', filename='adminLTE/bootstrap/css/bootstrap.min.css')}}" rel="stylesheet" type="text/css" />
@@ -303,7 +303,7 @@
           <!-- search form (Optional) -->
           <form action="{{url_for('.search')}}" method="get" class="sidebar-form">
             <div class="input-group">
-              <input type="text" name="q" class="form-control" placeholder="Search ..."
+              <input type="text" name="q" class="form-control" placeholder="인명/게시판 검색.."
               {%if search_string %}value="{{search_string}}"{% endif %} />
               <span class="input-group-btn">
                 <button type='submit' id='search-btn' class="btn btn-flat"><i class="fa fa-search"></i></button>
@@ -344,7 +344,8 @@
 
             <li class="treeview">
               <a href="#"><i class='fa fa-cloud'></i> <span>STEM Cloud</span> <i class="fa fa-angle-left pull-right"></i></a>
-              <ul class="treeview-menu">
+              <ul class="treeview-menu"> 
+                <li><a href="/stem/board/9/351"><i class='fa fa-angle-double-right'></i>접속 및 가입 안내</a></li>
                 <li><a href="/stem-nas" {% if request.MOBILE == False %} target="_blank" {% endif %} ><i class='fa fa-angle-double-right'></i>클라우드 데스크톱</a></li>
                 <li><a href="/stem-photo" {% if request.MOBILE == False %} target="_blank" {% endif %} ><i class='fa fa-angle-double-right'></i>포토 스테이션</a></li>
                 <li><a href="/stem-file" {% if request.MOBILE == False %} target="_blank" {% endif %} ><i class='fa fa-angle-double-right'></i>파일 스테이션</a></li>
@@ -412,7 +413,7 @@
           Created by <a href="/stem/people/2">T.Jeong</a> &amp; <a href="/stem/people/159">S.Lee</a>
         </div>
         <!-- Default to the left -->
-        <b>Copyright &copy; 2015-2017 <a href="/">공우(STEM)</a>.</b> All rights reserved.
+        <b>Copyright &copy; 2015-{{current.year}} <a href="/">공우(STEM)</a>.</b> All rights reserved.
       </footer>
       
       <!-- Control Sidebar -->      

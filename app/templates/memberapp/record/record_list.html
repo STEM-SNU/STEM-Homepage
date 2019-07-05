@@ -106,9 +106,9 @@
                     <tbody>
                         <tr style="background-color:white;">
                         <th>구분</th>
+                        <th>제목</th>
                         <th>날짜</th>
                         <th>장소</th>
-                        <th>제목</th>
                         <th>서기</th>
                         </tr>
                         {% for record in records %}
@@ -126,10 +126,10 @@
                         {% elif record.conftype == 5 %}
                         <td style="vertical-align:middle;"><small>기타</small></td>
                         {% endif %}
-                        <td style="vertical-align:middle;">{{record.confday.strftime('%Y-%m-%d')}}</td>
-                        <td style="vertical-align:middle;">{{record.confplace}}</td>
                         <td style="vertical-align:middle; text-align:left;"><a href="/stem/record/view/{{record.id}}" class="text-muted"><b>{{record.title}}
                          {% if record.commentCount %}[{{record.commentCount}}]{% endif %}</b></a></td>
+                        <td style="vertical-align:middle;">{{record.confday.strftime('%Y-%m-%d')}}</td>
+                        <td style="vertical-align:middle;">{{record.confplace}}</td>
                         <td style="vertical-align:middle;"><a href="/stem/people/{{record.recordwriter.id}}" class="text-muted">{{ record.recordwriter.nickname }}</a></td>
                         </tr>
                         {% endfor %}

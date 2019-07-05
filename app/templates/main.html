@@ -73,7 +73,10 @@
             </div>
         </div>
         <div class="m_con2">
-            <div class="m_notice_img"><a href="http://stementor.tistory.com/" target="_blank"><img src="{{ url_for('static', filename='images/m_notice_img.gif') }}" style="width:223px; border-radius:10px;"/></a></div>
+            <div class="m_notice_img">
+                <a href="http://stementor.tistory.com" target="_blank"><img src="{{ url_for('static', filename='images/m_notice_img1.gif') }}" style="width:220px; border-radius:10px;"/></a>
+                <a href="https://www.dbfoundation.or.kr" target="_blank"><img src="{{ url_for('static', filename='images/m_notice_img2.gif') }}" style="width:220px;"/></a>
+            </div>
             <div class="boards">
                 {% for board in boards %}
                 <div class="board">

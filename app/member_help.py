@@ -26,7 +26,7 @@ class Current(Resource):
     @staticmethod
     def active(text):
         cycle = db.session.query(func.max(models.User.cycle).label("cycle")).first().cycle
-        page_manager = models.User.query.filter(or_(models.User.cycle==cycle, models.User.cycle==cycle-1)).filter(or_(models.User.deptstem_id==5,models.User.deptstem_id==6)).all()
+        page_manager = models.User.query.filter(or_(models.User.cycle==cycle, models.User.cycle==cycle-1)).filter(or_(models.User.deptstem_id==5,models.User.deptstem_id==6)).order_by(models.User.deptstem_id).all()
         if text=="executives":
             manager_rec = []
             for man in page_manager:

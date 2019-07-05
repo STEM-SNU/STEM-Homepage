@@ -1,4 +1,4 @@
-<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.14/angular.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.7.8/angular.min.js"></script>
 <script src="{{url_for('static', filename='js/member_app.js')}}"></script>
 <link rel="stylesheet" href="{{url_for('static', filename='css/member.css')}}" />
 <!--<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">-->
@@ -6,14 +6,14 @@
 <li class="nostyle con_img">
 <div id="memberlist" ng-app="stemApp" ng-controller="memberList" style="visibility:hidden;">
     <div style="text-align:right; margin:10px 10px;">
-        <select name="cycle" ng-init="searchText.cycle = searchText.cycle || '8'" ng-model="searchText.cycle" style="width:110px; display:inline-block;">
+        <select name="cycle" ng-init="searchText.cycle = searchText.cycle || '{{current.cycle}}'" ng-model="searchText.cycle" style="width:110px; display:inline-block;">
         {%for n in range(current.cycle)%}
         <option value='{{n+1}}' style="text-align:center;">{{n+1}}기 - {{n+2010}}년</option>
         {%endfor%}
 		</select>
 	</div>
 	<div class="members" style="margin:10px 50px;" ng-view>
-		<div ng-repeat="cycle in all_members | filter:searchText">
+		<div ng-repeat="cycle in all_members | filter : {cycle: +searchText.cycle} : true">
 			<h3>{[cycle[0].cycle]}기</h3><br>
             <a ng-repeat="mem in cycle" class="member-tag" ng-click="openCard(mem.id)">
             	<div class="member-picture">

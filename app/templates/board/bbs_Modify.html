@@ -69,11 +69,25 @@
 </table>
 
 <div style="padding:10px; text-align:center;">
-    <input type="button" value="확인" class="button2" style="cursor:pointer" onclick="sendit()">
+    <input type="button" value="확인" class="button2" style="cursor:pointer" onclick="sendit2()">
     <input type="button" value="취소" class="button1" onclick="history.back();" style="cursor:pointer">
 </div>
 </form>
 
 <script type="text/javascript">
 CKEDITOR.replace( "content", { customConfig: "config.js" } );
+var unloadcheck=true;
+
+function sendit2(){
+    unloadcheck=false;
+    sendit();
+}
+
+
+function beforeUnloadHandler(){
+    if (unloadcheck) {
+       return '회의록 작성 중입니다.';
+    }
+   }
+$(window).bind('beforeunload', beforeUnloadHandler);
 </script>

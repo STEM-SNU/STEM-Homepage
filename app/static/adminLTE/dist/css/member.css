@@ -119,18 +119,14 @@
 	border-radius: 140px;
 	overflow: hidden;
 	border: 3px solid #DDD;
+	background-color:#DDD;
 	position: relative;
 }
 
 .member-picture-thumb {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  height: 100%;
-  width: auto;
-  -webkit-transform: translate(-50%,-50%);
-      -ms-transform: translate(-50%,-50%);
-          transform: translate(-50%,-50%);
+   height: inherit;
+   width: inherit;
+   object-fit: cover !important;
 }
 
 .member-picture-thumb.portrait{

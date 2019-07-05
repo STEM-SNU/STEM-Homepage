@@ -3,7 +3,6 @@ venv*
 *.swp
 
 app.db*
-dbinfo
 
 app/static/upload/*
 app/mail_config.py
@@ -11,4 +10,6 @@ app/mail_config.py
 uwsgi.ini
 client_secret.json
 
-members.csv
+readme_for_IT_admin.txt
+robots.txt
+certbot-auto

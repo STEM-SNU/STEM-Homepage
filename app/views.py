@@ -1,6 +1,6 @@
 #-*-coding: utf-8 -*-
 from app import app, api, db, models, lm
-from flask import render_template, Response, redirect, url_for, request, abort, flash
+from flask import render_template, Response, redirect, url_for, request, abort, flash, make_response
 from flask.ext.restful import Resource, reqparse, fields, marshal_with
 from flask.ext.login import login_user, logout_user, current_user, \
     login_required, AnonymousUserMixin
@@ -26,6 +26,13 @@ lm.anonymous_user = AnonymousUser
 @lm.user_loader
 def load_user(id):
     return models.User.query.get(int(id))
+
+robot_text = open('robots.txt','r').read()
+@app.route('/robots.txt')
+def robots():
+    resp = make_response(robot_text)
+    resp.headers['content-type'] = 'text/plain'
+    return resp
 
 @app.route('/')
 @mobile_template('/{mobile/}main.html')

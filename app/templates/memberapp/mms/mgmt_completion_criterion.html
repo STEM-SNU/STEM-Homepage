@@ -65,7 +65,12 @@
                                 <a class="list-group-item printhide" onclick="MakeAct(0);"><i class="fa fa-plus"></i>&nbsp;&nbsp;&nbsp;정규활동</a>
                             {% endif %}
                             </div><div style="width:80%; margin:0 auto;"><small>
-                            ※ 정규활동에서 이수 점수 {{regularactscore}}점{% if quarter.activity_score - regularactscore > 0 %}, 그리고 특별활동에서 이수 점수 {{quarter.activity_score - regularactscore}}점{% endif %}을 포함하여 총 <span style="color:blue; font-size:2rem;"><b>{{quarter.activity_score}}</b></span>점을 채워야 이수를 할 수 있으며, 부득이한 경우 정규활동은 특별활동의 이수 점수로 대체할 수 있다.</small></div>
+                            {% if quarter.activity_score > regularactscore %}
+                            ※ 정규활동에서 이수 점수 {{regularactscore}}점, 그리고 특별활동에서 이수 점수 {{quarter.activity_score - regularactscore}}점을 포함하여 총 <span style="color:blue; font-size:2rem;"><b>{{quarter.activity_score}}</b></span>점을 채워야 이수를 할 수 있으며, 부득이한 경우 정규활동은 특별활동의 이수 점수로 대체할 수 있다.
+                            {% else %}
+                            ※ 총 <span style="color:blue; font-size:2rem;"><b>{{quarter.activity_score}}</b></span>점을 채워야 이수를 할 수 있다.
+                            {% endif %}
+                            </small></div>
                         </td>
                         </tr>
                         <tr>
@@ -371,6 +376,7 @@ function deleteActivity(id) {
         jQuery.ajax({
             url: "/stem/api/activity/" + id + "/delete",
             type: "POST",
+            async:false,
             success: function(data) {
                 location.reload();
             }
@@ -382,6 +388,7 @@ function newQuarter() {
   jQuery.ajax({
     url: "/stem/api/quarter/new",
     type: "POST",
+    async:false,
     success: function(data) {
       location.href="/stem/mms/completion_criterion"
     }
@@ -395,6 +402,7 @@ function modifyActivity(id) {
         url: "/stem/api/activity/modify",
         type: "POST",
         data: $(".modifyact_form_"+id).serialize(),
+        async:false,
         success: function(data) {
           location.reload();
         }
@@ -407,6 +415,7 @@ $("#makeactivity").submit(function() {
             url: '/stem/api/activity/make',
             data: $('#makeactivity').serialize(),
             type: 'POST',
+    	    async:false,
             success: function(data) {
                 location.reload();
             }
@@ -419,6 +428,7 @@ $("#modifyquarter").submit(function() {
             url: '/stem/api/quarter/'+id+'/modify',
             data: $('#modifyquarter').serialize(),
             type: 'POST',
+            async:false,
             success: function(data) {
                 location.reload();
             }

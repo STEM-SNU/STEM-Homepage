@@ -15,18 +15,18 @@
 
 <div class="row">
 
-{% if year==recentyear and semester==recentsemester %}
+
   <div class="members col-xs-12">
       <div class="box">
         <div class="box-header detailopen">
-          <h3 class="box-title">Active 이수표</h3>
+          <h3 class="box-title">{{year}}/{{semester}} 이수표</h3>
         </div>
       <div id="completionmgmt" class="box-body table-responsive no-padding" style="display:none;">
         </div>
         </div>
     <span style="position:absolute; top:12px; right:25px; color:gray;" class="activeloading pull-right">(로딩 중...)</span>
   </div>
-{% endif %}
+
 
     <div class="col-xs-12">
         <div class="box">
@@ -231,6 +231,7 @@ $("#AddMemberConf").click(function() {
             url: '/stem/api/quarter/memberconference/add',
             type: 'POST',
             data: "conference_id="+conference_id+"&member_ids="+memberSelections,
+            async:false,
             success: function(data) {
                 location.reload();
             }
@@ -251,6 +252,7 @@ $("#AddMemberAct").click(function() {
             url: '/stem/api/quarter/memberactivity/add',
             type: 'POST',
             data: "activity_id="+activity_id+"&member_ids="+memberSelections,
+            async:false,
             success: function(data) {
                 location.reload();
             }
@@ -316,7 +318,7 @@ if($(window).width()>=768) { $("[class^=card]").css('width', $(window).width()*0
 $("[class^=memberadd]").load("/stem/mms/mgmt/completion_record/member_addlist", function() {
     $("span[class=listloading]").html(""); 
 });
-$("#completionmgmt").load("/stem/mms/mgmt/completion_record/member_activelist", function() {
+$("#completionmgmt").load("/stem/mms/mgmt/completion_record/member_recordtable/{{year}}/{{semester}}", function() {
     $("span[class^=activeloading]").html("클릭 시 열립니다."); 
 });
 }); 
@@ -327,7 +329,7 @@ if($(window).width()>=768) { $("[class^=card]").css('width', $(window).width()*0
 
 function renew_activeloading() {
     $("span[class^=activeloading]").html("(로딩 중...)");
-    $("#completionmgmt").load("/stem/mms/mgmt/completion_record/member_activelist", function() {
+    $("#completionmgmt").load("/stem/mms/mgmt/completion_record/member_recordtable/{{year}}/{{semester}}", function() {
     $("span[class^=activeloading]").html("클릭 시 열립니다."); 
 });
 }
