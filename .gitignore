@@ -1,8 +1,9 @@
 *.pyc
 venv*
 *.swp
+*.log
 
-app.db*
+app*.db
 
 app/static/upload/*
 app/mail_config.py
