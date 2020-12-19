@@ -1,4 +1,4 @@
-from app import app
+from stem import app
 import re
 from jinja2 import evalcontextfilter, Markup, escape
 

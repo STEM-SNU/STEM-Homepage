@@ -12,7 +12,7 @@ from wtforms import IntegerField, TextField, PasswordField, HiddenField, \
 from werkzeug import secure_filename
 from urllib.parse import urlparse, urljoin
 from itsdangerous import URLSafeTimedSerializer
-from app import app, models, db, notification
+from stem import app, models, db, notification
 from sqlalchemy.sql.expression import func
 
 ts = URLSafeTimedSerializer(app.config["SECRET_KEY"])

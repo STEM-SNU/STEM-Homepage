@@ -1,5 +1,4 @@
-#-*-coding: utf-8 -*-
-from app import app, api, db, models, lm
+from stem import app, api, db, models, login_manager
 from flask import render_template, Response, redirect, url_for, request, abort, flash, make_response
 from flask.ext.restful import Resource, reqparse, fields, marshal_with
 from flask.ext.login import login_user, logout_user, current_user, \
@@ -21,9 +20,9 @@ class AnonymousUser(AnonymousUserMixin):
         super().__init__()
         self.member = None
 
-lm.anonymous_user = AnonymousUser
+login_manager.anonymous_user = AnonymousUser
 
-@lm.user_loader
+@login_manager.user_loader
 def load_user(id):
     return models.User.query.get(int(id))
 

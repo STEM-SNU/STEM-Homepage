@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import pytz
 import uuid
@@ -25,7 +23,7 @@ from sqlalchemy.sql.expression import func
 from sqlalchemy.orm import load_only
 from datetime import datetime, timedelta
 
-from app import db, models, app, helper, notification, mail
+from stem import db, models, app, helper, notification, mail
 
 from operator import itemgetter
 

@@ -1,5 +1,5 @@
 #-*-coding: utf-8 -*-
-from app import db
+from stem import db
 
 import datetime
 import uuid

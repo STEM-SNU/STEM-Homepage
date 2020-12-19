@@ -5,8 +5,8 @@ venv*
 
 app*.db
 
-app/static/upload/*
-app/mail_config.py
+stem/static/upload/*
+stem/mail_config.py
 
 uwsgi.ini
 client_secret.json

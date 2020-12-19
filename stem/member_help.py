@@ -1,4 +1,4 @@
-from app import db, models, app
+from stem import db, models, app
 
 from sqlalchemy import or_, and_, not_
 from sqlalchemy.sql.expression import func

@@ -3,7 +3,7 @@ import re
 import uuid
 
 from werkzeug import secure_filename
-from app import app, db, models, mail
+from stem import app, db, models, mail
 from flask.ext.mail import Mail, Message
 
 # returns tuple (add, sub)

@@ -1,4 +1,3 @@
-#-*-coding: utf-8 -*-
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
 from flask.ext.login import LoginManager
@@ -9,6 +8,14 @@ from flask.ext.admin.contrib.sqla import ModelView
 from flask.ext.mobility import Mobility
 from .config import MAIL_PASSWORD
 import os
+
+
+from stem.member_app import member_app
+
+from stem import views, models, forms, config, admin_views, filters
+
+from flask_apscheduler import APScheduler
+from datetime import date, datetime, timedelta
 
 app = Flask(__name__)
 
@@ -59,17 +66,11 @@ mail = Mail(app)
 
 db = SQLAlchemy(app)
 api = restful.Api(app)
-lm = LoginManager()
-lm.init_app(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
 admin = Admin(url='/admin_stemware', template_mode='bootstrap3')
 
-from app.member_app import member_app
 app.register_blueprint(member_app, url_prefix='/stem')
-
-from app import views, models, forms, config, admin_views, filters
-
-from flask_apscheduler import APScheduler
-from datetime import date, datetime, timedelta
 
 def daily():
     members = models.User.query.filter_by(ismember=1).all()

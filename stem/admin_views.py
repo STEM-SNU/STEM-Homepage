@@ -1,7 +1,7 @@
 import os
 
-from app import app
-from app import db, models, admin, lm
+from stem import app
+from stem import db, models, admin, login_manager
 from flask.ext.admin.contrib.sqla import ModelView
 from sqlalchemy import func
 from flask.ext.login import login_user, logout_user, current_user, \

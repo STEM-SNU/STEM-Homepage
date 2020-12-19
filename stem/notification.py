@@ -1,6 +1,6 @@
-from app import models, db
-from app.models import ObjectType
-from app.models import NotificationAction as Verb
+from stem import models, db
+from stem.models import ObjectType
+from stem.models import NotificationAction as Verb
 import re
 from datetime import datetime, timedelta
 from collections import defaultdict
