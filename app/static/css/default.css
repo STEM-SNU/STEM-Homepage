@@ -1,6 +1,6 @@
 @charset "utf-8";
 /* devel-designer Taehee Jeong */
-* {font-family:"NanumGothic", "Gothic", "Arial", "Helvetica";}
+* {font-family:"Nanum Gothic", "Gothic", "Arial", "Helvetica";}
 * {max-height:1000000px;}
 .command-elem {cursor:pointer;color: #777;}
 .comment-count {font-weight:bold;color:#ffac7d;}

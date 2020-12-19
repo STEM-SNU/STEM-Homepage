@@ -75,29 +75,29 @@ def reset():
     if form.validate_on_submit():
         user = models.User.query.filter_by(email=form.email.data).first()
         if user is not None:
-	        if (form.username.data == user.username) and (form.nickname.data == user.nickname):
-		        subject = "Password reset requested"
+            if (form.username.data == user.username) and (form.nickname.data == user.nickname):
+                subject = "Password reset requested"
 
-		        token = ts.dumps(user.email, salt='recover-key')
+                token = ts.dumps(user.email, salt='recover-key')
 
-		        recover_url = url_for(
-		            'reset_with_token',
-		            token=token,
-		            _external=True)
+                recover_url = url_for(
+                    'reset_with_token',
+                    token=token,
+                    _external=True)
 
-		        html = render_template(
-		            'member/recover.html',
-		            recover_url=recover_url)
+                html = render_template(
+                    'member/recover.html',
+                    recover_url=recover_url)
 
-		        send_email(user.email, subject, html)
+                send_email(user.email, subject, html)
 
-		        return render_template('reset_finish.html')
-	        else:
-	        	flash('해당하는 회원 정보가 존재하지 않습니다.')
-	        	return redirect('/reset')
+                return render_template('reset_finish.html')
+            else:
+                flash('해당하는 회원 정보가 존재하지 않습니다.')
+                return redirect('/reset')
         else:
-        	flash('해당하는 회원 정보가 존재하지 않습니다.')
-        	return redirect('/reset')
+            flash('해당하는 회원 정보가 존재하지 않습니다.')
+            return redirect('/reset')
     return render_template('reset.html', form=form)
 
 @app.route('/findID', methods=["GET", "POST"])
@@ -106,14 +106,14 @@ def findid():
     if form.validate_on_submit():
         user = models.User.query.filter_by(email=form.email.data).first()
         if user is not None:
-	        if (form.nickname.data == user.nickname):
-		        return render_template('findID_result.html', user=user)
-	        else:
-	        	flash('해당하는 회원 정보가 존재하지 않습니다.')
-	        	return redirect('/findID')
+            if (form.nickname.data == user.nickname):
+                return render_template('findID_result.html', user=user)
+            else:
+                flash('해당하는 회원 정보가 존재하지 않습니다.')
+                return redirect('/findID')
         else:
-        	flash('해당하는 회원 정보가 존재하지 않습니다.')
-        	return redirect('/findID')
+            flash('해당하는 회원 정보가 존재하지 않습니다.')
+            return redirect('/findID')
     return render_template('findID.html', form=form)
 
 @app.route('/reset/<token>', methods=["GET", "POST"])
@@ -403,14 +403,15 @@ def unauthorized(e):
     if request.MOBILE == True :
         form = LoginForm()
         return render_template('/member/mlogin.html', form=form)
+        # return redirect('/m_login')
     else :
         form = LoginForm()
         return render_template('member/login.html', form=form)
+        # return redirect('/login')
 
 @app.errorhandler(403)
 def forbidden(e):
     return render_template('403.html', form=LoginForm()), 403
-
 
 @app.errorhandler(404)
 def not_found(e):
@@ -419,8 +420,6 @@ def not_found(e):
 @app.route('/notfound')
 def not_found2():
     return render_template('404.html', form=LoginForm()), 404
-
-
 
 class WritePost(Resource):
     @login_required

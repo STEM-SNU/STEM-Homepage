@@ -9,6 +9,7 @@ from flask.ext.restful import Resource
 class Current(Resource):
     def __init__(self):
         self.cycle = db.session.query(func.max(models.User.cycle).label("cycle")).first().cycle
+        self.membernum = db.session.query(models.User).filter_by(ismember=True).count()
         self.year = db.session.query(func.max(models.Quarter.year).label("recentyear")).first().recentyear
         self.semester = db.session.query(func.max(models.Quarter.semester).label("recentsemester")).filter_by(year=self.year).first().recentsemester
         self.quarter = models.Quarter.query.filter_by(year=self.year).filter_by(semester=self.semester).first()

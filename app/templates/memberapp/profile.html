@@ -99,7 +99,7 @@
   <i class="fa fa-birthday-cake"></i> {{profile_member.birthday.strftime("%Y.%m.%d")}}<br>
   {% endif %}
   {% if profile_member.social %}
-  <i class="fa fa-facebook-square"></i> <a href="{{profile_member.social}}">{{profile_member.social.split('://')[1]}}</a><br>
+  <i class="fa fa-external-link"></i> <a href="{{profile_member.social}}">{{profile_member.social.split('://')[1]}}</a><br>
   {% endif %}
   <i class="fa fa-envelope"></i> <a href="mailto:{{profile_member.email}}">{{profile_member.email}}</a><br>
   <i class="fa fa-phone"></i> {{profile_member.phone}}
