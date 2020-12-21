@@ -43,7 +43,7 @@
 
         </td>
     </tr>
-    {% if not current_user.is_anonymous() %}
+    {% if not current_user.is_anonymous %}
     <tr class="comment-write">
         <th>
             Comment
@@ -66,7 +66,7 @@
                         {% if comment.publiccommenter == current_user %} <i onclick="deleteComment({{comment.id}})" class="fa fa-times command-elem"></i>{% endif %}
                     </h5>
                     <div class="comment-body">
-                    {{comment.body | nl2br}}
+                    {{comment.body | newline2br }}
                     </div>
                 </li>
                 {% endfor %}
@@ -101,7 +101,7 @@
 
 <div style="float:right; padding: 10px 0;">
 
-    {% if (current_user.is_authenticated() and post.publicwriter.id == current_user.id) %}
+    {% if (current_user.is_authenticated and post.publicwriter.id == current_user.id) %}
         <button class="button2" onclick="location.href='modify'">수정</button>
         <button class="button2" onclick="deletePost({{ post.id }}, {{post.boardpublic.id}})">삭제</button>
     {% endif %}

@@ -22,7 +22,7 @@
                 <div class="row">
                         <p class="col-md-12 text-center"><img src="{{url_for('static', filename='images/ico_arrow_orange.png')}}" alt="" title="" /> 필수 입력 사항입니다.</p>
 
-<form action="{{ url_for('register')}}" method="POST" name="Join" enctype="multipart/form-data">
+<form action="{{ url_for('Register')}}" method="POST" name="Join" enctype="multipart/form-data">
 {{ registerform.hidden_tag() }}
 <input type=hidden value="{{ next or '' }}" name=next>
 <table id="mobilejoin" cellspacing="0" class="table-striped" summary="개인회원정보입력" style="width:100%;">

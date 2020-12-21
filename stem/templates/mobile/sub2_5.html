@@ -8,7 +8,7 @@
     {% for item in AllRec %}
         <tr>
             <th class="text-center">{{ item.period }}</th>
-            <td class="text-center"><div>{{ item.content | nl2br}}</div></td>
+            <td class="text-center"><div>{{ item.content | newline2br }}</div></td>
         </tr>
     {% endfor %}
 {%- endmacro %}

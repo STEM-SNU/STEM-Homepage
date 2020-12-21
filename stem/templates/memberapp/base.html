@@ -301,7 +301,7 @@
           </div>
 
           <!-- search form (Optional) -->
-          <form action="{{url_for('.search')}}" method="get" class="sidebar-form">
+          <form action="{{url_for('.Search')}}" method="get" class="sidebar-form">
             <div class="input-group">
               <input type="text" name="q" class="form-control" placeholder="인명/게시판 검색.."
               {%if search_string %}value="{{search_string}}"{% endif %} />

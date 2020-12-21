@@ -81,7 +81,7 @@
                                     {% if (comment.recordcommenter == current_user) %} <i onclick="deleteComment({{comment.id}})" class="fa fa-times command-elem"></i>{% endif %}
                                     </h5>
                                         <div class="comment-body">
-                                        {{comment.body | nl2br}}
+                                        {{comment.body | newline2br }}
                                         </div>
                                 <hr></li>
                             {% endfor %}

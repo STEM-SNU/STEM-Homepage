@@ -92,7 +92,7 @@ form button {
 <div>
             <article>
                 <div class="login_box">
-                {% if current_user.is_authenticated() %}
+                {% if current_user.is_authenticated %}
                 <div style="text-align:center;verticla-align:center; margin:40px 0">
                     <h3 style="text-align:center; color:white;">{{current_user.nickname}}님,허가되지 않은 접근입니다.</h3>
                     <h4 style="text-align:center; color:white; margin-top:50px;">401 Forbidden</h4>
@@ -101,7 +101,7 @@ form button {
                 {% else %}
                 <h3 style="text-align:center; line-height:50px; color:white;">SNU Tomorrow's Edge Membership<br>웹멤버십 로그인</h3>
 
-                <form name="login" method="post" action="{{ url_for('moblogin') }}" onSubmit="mainLoginInputSendit(login);event.returnValue = false;">
+                <form name="login" method="post" action="{{ url_for('MobileLogin') }}" onSubmit="mainLoginInputSendit(login);event.returnValue = false;">
                 {{ form.hidden_tag() }}
                 <div style="display:inline-block;">
                     <div style="float:left;">
@@ -121,7 +121,7 @@ form button {
                 </div>
                 <br><br>
                 <div>
-                    <button type="button" class="btn_mid" onclick="location.href='{{ url_for('register') }}'">회원가입</button>
+                    <button type="button" class="btn_mid" onclick="location.href='{{ url_for('Register') }}'">회원가입</button>
                     <button type="button" class="btn_mid" onclick="javascript:go_menu('id_seek')">아이디 찾기</button>
                     <button type="button" class="btn_mid" onclick=javascript:go_menu('pw_seek')>비밀번호 찾기</button>
                 </div>

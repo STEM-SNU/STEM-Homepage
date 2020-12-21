@@ -40,7 +40,7 @@
             <div><div name="HKeditorContent">{{ post.body | safe}}</div></div>
         </td>
     </tr>
-    {% if not current_user.is_anonymous() %}
+    {% if not current_user.is_anonymous %}
     <tr class="comment-write">
         <th style="vertical-align:middle;">
             Comment
@@ -66,7 +66,7 @@
                         {% if comment.publiccommenter == current_user %} <i onclick="deleteComment({{comment.id}})" class="fa fa-times command-elem"></i>{% endif %}
                     </h5>
                     <div class="comment-body">
-                    {{comment.body | nl2br}}
+                    {{comment.body | newline2br }}
                     </div>
                 </li>
                 {% endfor %}
@@ -104,7 +104,7 @@
         <button class="btn btn-default" onclick="javaScript:writeReply({{ post.id }})">답변</button>
     {% endif %}
 
-    {% if (not current_user.is_authenticated() and post.boardpublic.isPublic) or (current_user.is_authenticated() and post.publicwriter.id == current_user.id) %}
+    {% if (not current_user.is_authenticated and post.boardpublic.isPublic) or (current_user.is_authenticated and post.publicwriter.id == current_user.id) %}
         <button class="btn btn-default" onclick="location.href='modify'">수정</button>
         <button class="btn btn-default" onclick="deletePost({{ post.id }}, {{post.boardpublic.id}})">삭제</button>
     {% elif post.boardpublic.isPublic %}

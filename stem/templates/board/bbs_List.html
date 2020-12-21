@@ -1,7 +1,7 @@
 <script type="text/javascript" src="{{ url_for('static', filename='library/boardControl.js') }}"></script>
 
 <div class="board_search">
-    <form name="searchform" method='post' action="{{ url_for('showBoard', sub = mNum|string + '-' + sNum|string , page = 1) }}" style='margin:0' onsubmit='searchGo()'>
+    <form name="searchform" method='post' action="{{ url_for('ShowBoard', sub = mNum|string + '-' + sNum|string , page = 1) }}" style='margin:0' onsubmit='searchGo()'>
         <select name="search" class="input">
         {% with select = searchform.search.data %}
             <option value="title" {% if select=="title" %} selected="selected"{% endif %}>제목</option>
@@ -11,7 +11,7 @@
         </select>
         <input name="searchstr" type="text" style="width:150px;" class="input" value="{{ searchform.searchstr.data if searchform.searchstr.data is not none }}">
         <input type='button' value='검색' class='button1' onclick="searchGo()" style='cursor:pointer'>
-        {% if current_user.is_authenticated() %}
+        {% if current_user.is_authenticated %}
         	{% if sNum in [1, 2] %}
         	{% if current_user.username in admin_users %}
             <input type='button' value='쓰기' class='button1' onclick="location.href='/post/write?board={{ sNum }}'" style='cursor:pointer'>

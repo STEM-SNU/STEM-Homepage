@@ -54,7 +54,7 @@ function autoGrow (oField) {
                     <li class="nostyle con_img">
 
 <p style="text-align:right; padding:5px 10px 0 5px;"><img src="{{url_for('static', filename='images/ico_arrow_orange.png')}}" alt="" title="" /> 필수 입력 사항입니다.</p>
-<form name="Modify" method="POST" action="{{ url_for('modify')}}" enctype="multipart/form-data">
+<form name="Modify" method="POST" action="{{ url_for('Modify')}}" enctype="multipart/form-data">
 {{ form.hidden_tag() }}
 <input type=hidden value="{{ next or '' }}" name=next>
 <h4 style="padding:5px;">웹 회원 정보 수정</h4>

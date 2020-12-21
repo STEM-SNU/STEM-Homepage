@@ -1,5 +1,5 @@
 <div class="board_search pull-right" style="margin:0 0 15px 0;">
-    <form name="searchform" method='post' action="{{ url_for('showBoard', sub = mNum|string + '-' + sNum|string , page = 1) }}" style='margin:0' onsubmit='searchGo()'>
+    <form name="searchform" method='post' action="{{ url_for('ShowBoard', sub = mNum|string + '-' + sNum|string , page = 1) }}" style='margin:0' onsubmit='searchGo()'>
         <select name="search" class="form-inline" style="height:30px;">
         {% with select = searchform.search.data %}
             <option value="title" {% if select=="title" %} selected="selected"{% endif %}>제목</option>
@@ -9,7 +9,7 @@
         </select>
         <input name="searchstr" type="text" style="width:80px; height:30px;" class="form-inline" value="{{ searchform.searchstr.data if searchform.searchstr.data is not none }}">
         <input type='button' value='검색' class='btn btn-default btn-sm' onclick="searchGo()" style='cursor:pointer; margin-bottom:3px;'>
-        {% if current_user.is_authenticated() %}
+        {% if current_user.is_authenticated %}
         	{% if sNum == 1 %}
         	{% if current_user.username in admin_users %}
             <input type='button' value='쓰기' class='btn btn-default btn-sm' onclick="location.href='/post/write?board={{ sNum }}'" style='cursor:pointer; margin-bottom:3px;'>

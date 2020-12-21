@@ -18,7 +18,7 @@ function resetPW(){
         }
 </script>
 {% block body %}
-<form action="{{ url_for('reset_with_token', token=token) }}" method="POST" name="ReSet">
+<form action="{{ url_for('ResetWithToken', token=token) }}" method="POST" name="ReSet">
 <div style="width:300px; margin:auto; height:100%; display:table;">
 <div style="display:table-cell; vertical-align:middle;">
 <p style="font-size:1rem; padding:5px 0; display:inline-block;">비밀번호 재설정 :</p> <p style="display:inline-block; float:right; padding:5px 0; ">

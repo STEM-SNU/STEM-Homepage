@@ -54,7 +54,7 @@ function autoGrow (oField) {
                         <h4 class="col-md-12 text-center stem-orange" style="margin-top:0;">웹 회원 정보 수정</h4>
                         <p class="col-md-12 text-center"><img src="{{url_for('static', filename='images/ico_arrow_orange.png')}}" alt="" title="" /> 필수 입력 사항입니다.</p>
 
-<form name="Modify" method="POST" action="{{ url_for('modify')}}" enctype="multipart/form-data">
+<form name="Modify" method="POST" action="{{ url_for('Modify')}}" enctype="multipart/form-data">
 {{ form.hidden_tag() }}
 <input type=hidden value="{{ next or '' }}" name=next>
 <table id="mobilejoin" cellspacing="0" class="table-striped" summary="개인회원정보입력" style="width:100%;">

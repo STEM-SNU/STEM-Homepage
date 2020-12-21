@@ -1,7 +1,7 @@
 #!venv/bin/python
 
-from app import app
+import stem
 
 if __name__ == '__main__':
-    app.debug = False  # change before commit
-    app.run(host='0.0.0.0',port=80, use_reloader=False)
+    stem.app.debug = False  # change before commit
+    stem.app.run(host='0.0.0.0',port=80, use_reloader=False)

@@ -1,87 +1,91 @@
-from flask import Flask
-from flask.ext.sqlalchemy import SQLAlchemy
-from flask.ext.login import LoginManager
-from flask.ext import restful
-from flask.ext.admin import Admin
-from flask.ext.mail import Mail
-from flask.ext.admin.contrib.sqla import ModelView
-from flask.ext.mobility import Mobility
-from .config import MAIL_PASSWORD
+import datetime
 import os
 
+import flask
+import flask_admin
+import flask_login
+import flask_mail
+import flask_mobility
+import flask_restful
+import flask_sqlalchemy
+import flask_apscheduler
 
-from stem.member_app import member_app
+from stem import config
 
-from stem import views, models, forms, config, admin_views, filters
+app = flask.Flask(__name__)
 
-from flask_apscheduler import APScheduler
-from datetime import date, datetime, timedelta
-
-app = Flask(__name__)
-
-Mobility(app)
+flask_mobility.Mobility(app)
 app.config['MOBILE_COOKIE'] = False
 
 app.config.from_object('config')
 app.secret_key = '0087a3768e5285b2580d'
 
-ALLOWED_EXTENSIONS_DOCUMENT = \
-    set('doc_docx_ppt_pptx_xls_xlsx_hwp_txt_pdf'.split('_'))
-ALLOWED_EXTENSIONS_IMAGE = \
-    set('jpg_png_gif_bmp'.split('_'))
-ALLOWED_EXTENSIONS_ARCHIVE = \
-    set('zip_7z_alz_gz_gzip'.split('_'))
-ALLOWED_EXTENSIONS_MEDIA = \
-    set('avi_wmv_mkv_mp4_mp3_wma_wav_ogg'.split('_'))
-ALLOWED_EXTENSIONS_CODE = \
-    set('c_cpp_h_hpp_py_rb_md_rkt_ml'.split('_'))
+_ALLOWED_EXTENSIONS_DOCUMENT = {
+    'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'hwp', 'txt', 'pdf'
+}
+_ALLOWED_EXTENSIONS_IMAGE = {'jpg', 'png', 'gif', 'bmp'}
+_ALLOWED_EXTENSIONS_ARCHIVE = {'zip', '7z', 'alz', 'gz', 'gzip'}
+_ALLOWED_EXTENSIONS_MEDIA = {'avi', 'wmv', 'mkv;mp4_mp3_wma', 'wav', 'ogg'}
+_ALLOWED_EXTENSIONS_CODE = {
+    'c', 'cc', 'cpp', 'h', 'hpp', 'py', 'rb', 'md', 'rkt', 'ml', 'js', 'html',
+    'css', 'sass', 'less'
+}
 
-app.config['ALLOWED_EXTENSIONS'] = \
-    ALLOWED_EXTENSIONS_DOCUMENT | \
-    ALLOWED_EXTENSIONS_IMAGE | \
-    ALLOWED_EXTENSIONS_ARCHIVE | \
-    ALLOWED_EXTENSIONS_MEDIA | \
-    ALLOWED_EXTENSIONS_CODE
+app.config['ALLOWED_EXTENSIONS'] = (
+    _ALLOWED_EXTENSIONS_DOCUMENT | _ALLOWED_EXTENSIONS_IMAGE
+    | _ALLOWED_EXTENSIONS_ARCHIVE | _ALLOWED_EXTENSIONS_MEDIA
+    | _ALLOWED_EXTENSIONS_CODE)
 
-app.config['DISALLOWED_EXTENSIONS'] = set('php_asp_exe_html_js'.split('_'))
+app.config['DISALLOWED_EXTENSIONS'] = {'php', 'asp', 'exe', 'html', 'js'}
 
 app.config['APP_ROOT'] = os.path.dirname(os.path.abspath(__file__))
 app.config['UPLOAD_FOLDER'] = os.path.join(app.config['APP_ROOT'],
                                            'static/upload')
-mail = Mail(app)
+mail = flask_mail.Mail(app)
 
 app.config.update(
-        DEBUG=True,
-        #EMAIL SETTINGS
-        MAIL_SERVER='smtp.gmail.com',
-        MAIL_PORT=465,
-        MAIL_USE_SSL=True,
-        MAIL_USE_TSL=False,
-        MAIL_USERNAME='stemsnu.noreply@gmail.com',
-        MAIL_DEFAULT_SENDER='공우_발신전용',
-        MAIL_PASSWORD= MAIL_PASSWORD
-        )
+    DEBUG=True,
+    # EMAIL SETTINGS
+    MAIL_SERVER='smtp.gmail.com',
+    MAIL_PORT=465,
+    MAIL_USE_SSL=True,
+    MAIL_USE_TSL=False,
+    MAIL_USERNAME='stemsnu.noreply@gmail.com',
+    MAIL_DEFAULT_SENDER='공우_발신전용',
+    MAIL_PASSWORD=config.MAIL_PASSWORD)
 
-mail = Mail(app)
+mail = flask_mail.Mail(app)
 
-db = SQLAlchemy(app)
-api = restful.Api(app)
-login_manager = LoginManager()
+db = flask_sqlalchemy.SQLAlchemy(app)
+api = flask_restful.Api(app)
+login_manager = flask_login.LoginManager()
 login_manager.init_app(app)
-admin = Admin(url='/admin_stemware', template_mode='bootstrap3')
+admin = flask_admin.Admin(url='/admin_stemware', template_mode='bootstrap3')
+
+
+from stem import models
+from stem import notification
+from stem import views
+from stem import filters
+from stem.member_app import member_app
 
 app.register_blueprint(member_app, url_prefix='/stem')
+
 
 def daily():
     members = models.User.query.filter_by(ismember=1).all()
     for member in members:
-        if member.birthday and member.birthday > date(1970,1,2):
-            if member.birthday.strftime('%m-%d') == datetime.now().strftime('%m-%d'):
+        if member.birthday and member.birthday > datetime.date(1970, 1, 2):
+            today = datetime.datetime.now()
+            if (member.birthday.month == today.month and
+                    member.birthday.day == today.day):
                 target = member
-                notification.Push(member, models.User.query.filter_by(ismember=1).all(),
-                          target, models.NotificationAction.update, "Birthday")
+                notification.Push(member,
+                                  models.User.query.filter_by(
+                                      ismember=1).all(), target,
+                                  models.NotificationAction.update, 'Birthday')
     records = models.Record.query.filter_by(body='').all()
-    limit = datetime.now() - timedelta(days=2)
+    limit = datetime.datetime.now() - datetime.timedelta(days=2)
     for record in records:
         if record.confday <= limit:
             db.session.delete(record)
@@ -89,19 +93,18 @@ def daily():
 
 
 class Config(object):
-    JOBS = [
-        {
+    JOBS = [{
             'id': 'daily',
             'func': daily,
             'trigger': 'interval',
             'seconds': 86400,
             'start_date': '2010-07-14 00:00:05'
-        }
-    ]
+            }]
 
     SCHEDULER_API_ENABLED = True
 
+
 app.config.from_object(Config())
-scheduler = APScheduler()
+scheduler = flask_apscheduler.APScheduler()
 scheduler.init_app(app)
 scheduler.start()

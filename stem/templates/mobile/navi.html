@@ -40,7 +40,7 @@
                     <a class="moveto" href="/sub/5-1">Board</a>
                 </li>
                 <li>
-                    {% if current_user.is_authenticated() %}
+                    {% if current_user.is_authenticated %}
                     <a class="moveto" href="/member/modify" style="width:50%; display:inline-block;">Mypage</a><a class="moveto" href="/logout" style="width:50%; display:inline-block;">Logout</a>
                     {% else %}
                     <a class="moveto" href="/member/register" style="width:50%; display:inline-block;">Register</a><a class="moveto" href="/m_login" style="width:50%; display:inline-block;">Login</a>
